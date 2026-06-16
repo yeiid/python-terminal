@@ -10,18 +10,15 @@ from world.zones import TestCase
 
 def validate_code(
     code: str,
-    mode: str,
+    exec_mode: str,
     test_cases: list[TestCase],
     timeout: int = 5,
 ) -> tuple[bool, str, list[str]]:
-    """Ejecuta el código contra cada caso de prueba.
-
-    Retorna (pasó_todos, mensaje_global, salidas_por_caso).
-    """
+    """Ejecuta el código contra cada caso de prueba y compara stdout."""
     outputs: list[str] = []
 
     for i, tc in enumerate(test_cases, 1):
-        result = execute_code(code, mode=mode, test_input=tc.input, timeout=timeout)
+        result = execute_code(code, mode=exec_mode, test_input=tc.input, timeout=timeout)
 
         if result.timed_out:
             return False, f"Caso {i}: {result.stderr}", outputs
@@ -32,7 +29,7 @@ def validate_code(
 
         outputs.append(result.stdout)
 
-        if result.stdout != tc.expected.strip():
+        if tc.expected.strip() and result.stdout != tc.expected.strip():
             return (
                 False,
                 f"Caso {i} falló.\n"

@@ -1,3 +1,5 @@
+import time
+import random
 from rich.panel import Panel
 from rich.layout import Layout
 from rich.text import Text
@@ -6,9 +8,20 @@ from rich.columns import Columns
 from rich import box
 from rich.align import Align
 from rich.progress_bar import ProgressBar
+from rich.live import Live
+from rich.spinner import Spinner
+from rich.progress import Progress, BarColumn, TextColumn
 from engine.state import GameState
 from engine.acts import Act
 from engine.console import console
+
+
+def type_print(text: str, delay: float = 0.015, style: str = ""):
+    """Typing effect para narrativa. No usar en feedback técnico."""
+    for char in text:
+        console.print(char, style=style, end="")
+        time.sleep(delay)
+    console.print()
 
 
 def show_title_screen(state: GameState):
@@ -42,6 +55,18 @@ def make_header(zone: "Zone", state: GameState, act: Act | None = None) -> Panel
     return Panel(text, border_style="bright_blue", box=box.HEAVY)
 
 
+def render_zone_progress(completed: int, total: int, zone_name: str):
+    """Barra de progreso de zona — se muestra al entrar."""
+    progress = Progress(
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+    )
+    task = progress.add_task(f"[cyan]{zone_name}[/]", total=total)
+    progress.update(task, completed=completed)
+    console.print(progress)
+
+
 def render_story(story_text: str):
     panel = Panel(
         Align.left(Text(story_text, style="italic white")),
@@ -58,7 +83,7 @@ def render_mission(
     mission_total: int,
     title: str,
     description: str,
-    example: str | None = None,
+    code_example: str | None = None,
     xp_reward: int = 0,
     hints_left: int = -1,
     act: Act | None = None,
@@ -74,9 +99,9 @@ def render_mission(
     console.print(Panel(header, border_style="yellow", box=box.SQUARE, padding=(0, 1)))
     console.print(Text(description, style="white"), highlight=True)
 
-    if example:
+    if code_example:
         example_panel = Panel(
-            Text(example, style="dim cyan"),
+            Text(code_example, style="dim cyan"),
             title="Ejemplo",
             border_style="dim cyan",
             box=box.ROUNDED,
@@ -89,7 +114,6 @@ def render_mission(
 
 
 def render_act_rules(act: Act):
-    """Muestra las reglas mecánicas del acto actual."""
     rules = []
     if act.max_hints_per_mission == -1:
         rules.append("💡 Pistas: ilimitadas")
@@ -170,21 +194,109 @@ def render_zone_creator_intro():
     console.input(Align.center(Text("[dim]Presiona Enter para comenzar...[/]")))
 
 
-def render_result(state: GameState, passed: bool, msg: str, xp: int = 0):
+def render_execution_spinner(mode: str = "code") -> Live:
+    """Crea un spinner contextual durante la ejecución de código."""
+    texts = {
+        "code": "Ejecutando tu código en el núcleo...",
+        "zone": "Abriendo portal a la zona...",
+        "validate": "Analizando tu arquitectura...",
+    }
+    spinner = Spinner("dots", text=texts.get(mode, "Procesando..."), style="cyan")
+    return Live(spinner, refresh_per_second=10, transient=True)
+
+
+def render_result(
+    state: GameState,
+    passed: bool,
+    msg: str,
+    xp: int = 0,
+    old_level: int = 0,
+):
+    """Panel de resultado — éxito o fallo con formato rico."""
     if passed:
-        panel = Panel(
-            Text(f"  ✓ {msg}  (+{xp} XP)", style="bold green"),
+        console.print(Panel(
+            Text(f"  ✔ {msg}  (+{xp} XP)", style="bold green"),
             border_style="green",
             box=box.HEAVY,
             padding=(0, 1),
-        )
-        console.print(panel)
+        ))
         pct = state.xp_progress * 100
         bar = ProgressBar(total=state.xp_for_next, completed=state.xp, width=30)
         console.print(f"  [yellow]Lv.{state.level}[/] [cyan]{state.title}[/]  [dim]{state.xp}/{state.xp_for_next} ({pct:.0f}%)[/]")
         console.print(bar)
+
+        if state.level > old_level:
+            render_level_up(state, old_level)
     else:
-        console.print(f"  [bold red]✗ {msg}[/]")
+        console.print(Panel(
+            Text(f"  ✗ {msg}", style="bold red"),
+            border_style="red",
+            box=box.SQUARE,
+            padding=(0, 1),
+        ))
+
+
+def render_level_up(state: GameState, old_level: int):
+    """Evento de nivel — momento memorable con aparición progresiva."""
+    time.sleep(0.3)
+    lines = [
+        ("", ""),
+        (f"  ⚡ NIVEL {state.level} — {state.title.upper()}  ", f"bold yellow on {_level_color(state.level)}"),
+        (f"  +{state.xp_for_next} XP hacia el siguiente nivel  ", "dim white"),
+        ("", ""),
+    ]
+    for text, style in lines:
+        panel = Panel(Text(text, style=style), border_style="yellow", box=box.DOUBLE, padding=(0, 2))
+        console.print(Align.center(panel))
+        time.sleep(0.15)
+
+
+def _level_color(level: int) -> str:
+    if level >= 20:
+        return "bright_yellow"
+    elif level >= 15:
+        return "magenta"
+    elif level >= 10:
+        return "cyan"
+    elif level >= 5:
+        return "green"
+    return "blue"
+
+
+def render_zone_complete(
+    zone_name: str,
+    zone_id: int,
+    total_missions: int,
+    completed: int,
+    skipped: int,
+    failed: int,
+    hints_used: int,
+    xp_gained: int,
+    time_spent: float,
+):
+    """Tabla de stats al final de zona."""
+    mins, secs = divmod(int(time_spent), 60)
+
+    table = Table.grid(padding=(0, 2))
+    table.add_column(style="bold cyan", width=14)
+    table.add_column(style="white")
+
+    accuracy = (completed / max(1, completed + failed)) * 100
+
+    table.add_row("  Tiempo", f"{mins} min {secs} seg")
+    table.add_row("  Intentos", str(completed + failed))
+    table.add_row("  Fallos", str(failed))
+    table.add_row("  Pistas", str(hints_used))
+    table.add_row("  XP ganado", str(xp_gained))
+    table.add_row("  Precisión", f"{accuracy:.0f}%")
+
+    console.print(Panel(
+        Align.center(table),
+        title=f"Zona {zone_id} completada — {zone_name}",
+        border_style="green",
+        box=box.HEAVY,
+        padding=(1, 2),
+    ))
 
 
 def show_commands():

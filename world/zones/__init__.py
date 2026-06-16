@@ -42,6 +42,8 @@ class Mission:
     title: str                         # Título corto
     description: str                   # Qué debe hacer el jugador
     execution_mode: str = "script"     # "script" | "function"
+    validation_mode: str = "stdout"   # "stdout" | "return"
+    expected_function: str | None = None   # name of function when mode == "return"
     code_template: str | None = None   # Código base para completar
     test_cases: list[TestCase] = field(default_factory=lambda: [TestCase()])
     hints: list[str] = field(default_factory=list)

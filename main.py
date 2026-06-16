@@ -19,6 +19,8 @@ from engine.renderer import (
     show_title_screen, make_header, render_story,
     render_mission, render_result, show_commands,
     render_meta_moment, render_zone_creator_intro, render_act_rules,
+    render_execution_spinner, render_zone_progress, render_zone_complete,
+    type_print,
 )
 from engine.profile import show_profile
 from engine.acts import get_act, render_act_transition
@@ -83,7 +85,6 @@ def handle_command(cmd: str, state: GameState) -> bool:
 
 
 def get_multiline_input(state: GameState, hints_left: int = -1) -> str | None:
-    lines = []
     hint_status = ""
     if hints_left >= 0:
         hint_status = f"  💡{hints_left} hints restantes"
@@ -94,7 +95,7 @@ def get_multiline_input(state: GameState, hints_left: int = -1) -> str | None:
             return ""
         return ""
 
-    lines.append(first_line)
+    lines = [first_line]
     try:
         while True:
             line = input("  ... ")
@@ -105,7 +106,6 @@ def get_multiline_input(state: GameState, hints_left: int = -1) -> str | None:
         state.save()
         console.print("\n[bold yellow]Juego guardado. ¡Hasta luego, dev![/]")
         sys.exit(0)
-
     return "\n".join(lines)
 
 
@@ -115,13 +115,12 @@ def process_mission(zone, mission, state, act):
         return True
 
     xp_reward = int(mission.xp_reward * act.xp_multiplier)
-    hints_used_in_this_mission = 0
     max_hints = act.max_hints_per_mission
 
     render_mission(
         zone.name, mission.num, len(zone.missions),
         mission.title, mission.description,
-        mission.code_template if act.code_template_required else mission.example,
+        mission.code_template if act.code_template_required or mission.code_template else None,
         xp_reward,
         hints_left=max_hints if max_hints >= 0 else -1,
         act=act,
@@ -134,17 +133,17 @@ def process_mission(zone, mission, state, act):
         return True
 
     t0 = time.time()
+    old_level = state.level
 
-    # Ejecutar contra cada caso de prueba
-    all_passed = True
-    last_msg = ""
-
-    for tc in mission.test_cases:
-        passed, msg, _ = validate_code(code, mission.execution_mode, [tc])
-        if not passed:
-            all_passed = False
-            last_msg = msg
-            break
+    with render_execution_spinner("code"):
+        all_passed = True
+        last_msg = ""
+        for tc in mission.test_cases:
+            passed, msg, _ = validate_code(code, mission.execution_mode, [tc])
+            if not passed:
+                all_passed = False
+                last_msg = msg
+                break
 
     elapsed = time.time() - t0
     state.missions_time[mission_key] = elapsed
@@ -157,14 +156,14 @@ def process_mission(zone, mission, state, act):
         state.check_zone_complete(zone.id)
         state.check_boss_hunter()
         state.save()
-        render_result(state, True, msg or "✓ Misión completada", xp_reward)
+        render_result(state, True, msg or "✓ Misión completada", xp_reward, old_level)
 
         if 5 <= zone.id <= 9:
             render_meta_moment(zone.id, mission.num)
         return True
     else:
         state.missions_failed += 1
-        console.print(f"[bold red]✗ {last_msg}[/]")
+        console.print(f"\n[bold red]✗ {last_msg}[/]")
         return handle_mission_fail(state, mission, mission_key, act)
 
 
@@ -174,7 +173,8 @@ def handle_mission_fail(state, mission, mission_key, act):
         return None
 
     has_hints = bool(mission.hints)
-    can_hint = act.max_hints_per_mission == -1 or state.hints_used_in_zone.get(str(state.unlocked_zones), 0) < act.max_hints_per_mission
+    hints_in_zone = state.hints_used_in_zone.get(str(state.unlocked_zones), 0)
+    can_hint = act.max_hints_per_mission == -1 or hints_in_zone < act.max_hints_per_mission
 
     options = "[R]eintentar"
     if has_hints and can_hint and act.max_hints_per_mission != 0:
@@ -274,26 +274,41 @@ def main():
             current_act_id = act.id
             render_act_transition(act)
             if zone.id > 1:
-                state.check_act_completion(
-                    get_act(zone.id - 1).id
-                )
+                state.check_act_completion(get_act(zone.id - 1).id)
 
         header = make_header(zone, state, act)
         console.print(header)
         render_act_rules(act)
+        render_zone_progress(0, len(zone.missions), zone.name)
         render_story(zone.story_intro)
+
+        zone_stats = {"xp": 0, "hints": 0, "failed": 0, "completed": 0, "skipped": 0}
+        t_zone_start = time.time()
 
         for mission in zone.missions:
             while True:
                 result = process_mission(zone, mission, state, act)
                 if result is True:
+                    zone_stats["completed"] += 1
+                    zone_stats["xp"] += int(mission.xp_reward * act.xp_multiplier)
                     break
                 elif result is False:
                     return
 
+        elapsed = time.time() - t_zone_start
+
         state.unlocked_zones += 1
         state.save()
-        console.print(f"[bold green]✓ Zona [cyan]{zone.name}[/] completada. ¡A la siguiente![/]")
+        render_zone_complete(
+            zone.name, zone.id,
+            len(zone.missions),
+            zone_stats["completed"],
+            zone_stats["skipped"],
+            zone_stats["failed"],
+            zone_stats["hints"],
+            zone_stats["xp"],
+            elapsed,
+        )
         show_map(state.unlocked_zones)
 
         if state.unlocked_zones == 13:

@@ -68,17 +68,24 @@ def validate_zone_file(filepath: str | Path) -> list[str]:
             if not isinstance(m, Mission):
                 errors.append(f"Misión {i+1}: no es una instancia de Mission")
                 continue
-            for field in REQUIRED_MISSION_FIELDS:
-                if getattr(m, field, None) is None:
-                    errors.append(f"Misión {i+1}.{field}: campo requerido")
-            if m.execution_mode not in ("script", "function"):
-                errors.append(f"Misión {i+1}.execution_mode: debe ser 'script' o 'function'")
-            if not m.test_cases:
-                errors.append(f"Misión {i+1}: debe tener al menos 1 caso de prueba")
-            else:
-                for j, tc in enumerate(m.test_cases):
-                    if not isinstance(tc, TestCase):
-                        errors.append(f"Misión {i+1}, caso {j+1}: no es un TestCase")
+        for field in REQUIRED_MISSION_FIELDS:
+            if getattr(m, field, None) is None:
+                errors.append(f"Misión {i+1}.{field}: campo requerido")
+        # New validation for validation_mode
+        if getattr(m, "validation_mode", None) not in ("stdout", "return"):
+            errors.append(f"Misión {i+1}.validation_mode: debe ser 'stdout' o 'return'")
+        # If mode is return, expected_function must be provided and non‑empty
+        if getattr(m, "validation_mode", None) == "return":
+            if not getattr(m, "expected_function", None):
+                errors.append(f"Misión {i+1}.expected_function: requerido cuando validation_mode='return'")
+        if m.execution_mode not in ("script", "function"):
+            errors.append(f"Misión {i+1}.execution_mode: debe ser 'script' o 'function'")
+        if not m.test_cases:
+            errors.append(f"Misión {i+1}: debe tener al menos 1 caso de prueba")
+        else:
+            for j, tc in enumerate(m.test_cases):
+                if not isinstance(tc, TestCase):
+                    errors.append(f"Misión {i+1}, caso {j+1}: no es un TestCase")
 
     return errors
 
