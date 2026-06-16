@@ -21,6 +21,10 @@ ALL_ACHIEVEMENTS = {
     "nivel_10":            {"name": "Senior",           "icon": "💎", "desc": "Alcanzar nivel 10"},
     "nivel_15":            {"name": "Arquitecto",       "icon": "🔮", "desc": "Alcanzar nivel 15"},
     "nivel_20":            {"name": "Legendario",       "icon": "👑", "desc": "Alcanzar nivel 20"},
+    "primer_acto":         {"name": "Acto I Superado",  "icon": "🎭", "desc": "Completar el Acto I"},
+    "segundo_acto":        {"name": "Acto II Superado", "icon": "🎭", "desc": "Completar el Acto II"},
+    "tercer_acto":         {"name": "Acto III Superado","icon": "🎭", "desc": "Completar el Acto III"},
+    "creador":             {"name": "Creador",          "icon": "✨", "desc": "Crear tu primera zona"},
 }
 
 
@@ -36,16 +40,34 @@ class GameState:
     achievements: list[str] = None
     hints_used: int = 0
     missions_skipped: int = 0
+    missions_failed: int = 0
     total_play_time: float = 0.0
     session_start: float = 0.0
+    first_play_date: str = ""
+    last_session_date: str = ""
+    player_zones_created: list[str] = None
+    xp_per_zone: dict[str, int] = None
+    missions_time: dict[str, float] = None
+    hints_used_in_zone: dict[str, int] = None
 
     def __post_init__(self):
         if self.completed_missions is None:
             self.completed_missions = []
         if self.achievements is None:
             self.achievements = []
+        if self.player_zones_created is None:
+            self.player_zones_created = []
+        if self.xp_per_zone is None:
+            self.xp_per_zone = {}
+        if self.missions_time is None:
+            self.missions_time = {}
+        if self.hints_used_in_zone is None:
+            self.hints_used_in_zone = {}
         if self.session_start == 0.0:
             self.session_start = time.time()
+        if not self.first_play_date:
+            self.first_play_date = time.strftime("%Y-%m-%d %H:%M")
+        self.last_session_date = time.strftime("%Y-%m-%d %H:%M")
 
     @property
     def xp_for_next(self) -> int:
@@ -67,6 +89,9 @@ class GameState:
             zones.add(int(zid))
         return zones
 
+    def get_hints_used_in_zone(self, zone_id: int) -> int:
+        return self.hints_used_in_zone.get(str(zone_id), 0)
+
     def add_xp(self, amount: int):
         self.xp += amount
         if amount > 0:
@@ -76,6 +101,10 @@ class GameState:
             self.level += 1
             self._update_title()
         self._check_level_achievements()
+
+    def add_xp_to_zone(self, zone_id: int, amount: int):
+        key = str(zone_id)
+        self.xp_per_zone[key] = self.xp_per_zone.get(key, 0) + amount
 
     def _update_title(self):
         if self.level >= 20:
@@ -107,15 +136,13 @@ class GameState:
         if len(self.completed_missions) >= 60:
             self.add_achievement("todas_misiones")
 
-        zone_missions = [m for m in self.completed_missions if m.startswith(f"{zone_id}-")]
-        if len(zone_missions) == 5 and self.hints_used_in_zone(zone_id) == 0:
-            self.add_achievement("no_hints")
+        if self.get_hints_used_in_zone(zone_id) == 0:
+            zone_missions = [m for m in self.completed_missions if m.startswith(f"{zone_id}-")]
+            if len(zone_missions) == 5:
+                self.add_achievement("no_hints")
 
         if self.unlocked_zones >= 12:
             self.add_achievement("todas_zonas")
-
-    def hints_used_in_zone(self, zone_id: int) -> int:
-        return 0
 
     def check_zone_complete(self, zone_id: int):
         zone_missions = [m for m in self.completed_missions if m.startswith(f"{zone_id}-")]
@@ -127,6 +154,14 @@ class GameState:
         if all(b in self.completed_missions for b in bosses):
             self.add_achievement("boss_hunter")
 
+    def check_act_completion(self, act_id: str):
+        if act_id == "I":
+            self.add_achievement("primer_acto")
+        elif act_id == "II":
+            self.add_achievement("segundo_acto")
+        elif act_id == "III":
+            self.add_achievement("tercer_acto")
+
     def get_medals(self) -> list[dict]:
         return [
             {"id": k, **ALL_ACHIEVEMENTS[k], "unlocked": k in self.achievements}
@@ -137,6 +172,7 @@ class GameState:
         if self.session_start:
             self.total_play_time += time.time() - self.session_start
             self.session_start = time.time()
+        self.last_session_date = time.strftime("%Y-%m-%d %H:%M")
         DATA_DIR.mkdir(parents=True, exist_ok=True)
         with open(DATA_DIR / "player_save.json", "w") as f:
             json.dump(asdict(self), f, indent=2)

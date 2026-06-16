@@ -1,4 +1,4 @@
-from engine.renderer import console
+from engine.console import console
 from engine.acts import ACTS
 from rich.table import Table
 from rich.text import Text
@@ -8,18 +8,18 @@ from rich.align import Align
 
 
 ZONES = [
-    {"id": 1, "name": "Barrio Base", "module": "world.zones.zone_01_variables", "tema": "Variables, tipos, f-strings"},
-    {"id": 2, "name": "El Laberinto", "module": "world.zones.zone_02_control", "tema": "if/else, loops, comprehensions"},
-    {"id": 3, "name": "La Fábrica", "module": "world.zones.zone_03_funciones", "tema": "Funciones, args, kwargs, scope"},
-    {"id": 4, "name": "El Mercado", "module": "world.zones.zone_04_estructuras", "tema": "Listas, dicts, sets, tuples"},
-    {"id": 5, "name": "La Torre", "module": "world.zones.zone_05_oop", "tema": "OOP, herencia, dunder methods"},
-    {"id": 6, "name": "El Puerto", "module": "world.zones.zone_06_modulos", "tema": "Módulos, imports, packages"},
-    {"id": 7, "name": "Los Archivos", "module": "world.zones.zone_07_archivos", "tema": "open(), pathlib, JSON, CSV"},
-    {"id": 8, "name": "El Templo", "module": "world.zones.zone_08_decoradores", "tema": "Decoradores, closures, functools"},
-    {"id": 9, "name": "El Río", "module": "world.zones.zone_09_generators", "tema": "Generators, itertools, yield"},
-    {"id": 10, "name": "La Red", "module": "world.zones.zone_10_async", "tema": "async/await, aiohttp, concurrencia"},
-    {"id": 11, "name": "El Arsenal", "module": "world.zones.zone_11_testing", "tema": "pytest, unittest, TDD"},
-    {"id": 12, "name": "El Cuartel", "module": "world.zones.zone_12_tools", "tema": "os, argparse, subprocess, requests"},
+    {"id": 1, "name": "Barrio Base", "tema": "Variables, tipos, f-strings"},
+    {"id": 2, "name": "El Laberinto", "tema": "if/else, loops, comprehensions"},
+    {"id": 3, "name": "La Fábrica", "tema": "Funciones, args, kwargs, scope"},
+    {"id": 4, "name": "El Mercado", "tema": "Listas, dicts, sets, tuples"},
+    {"id": 5, "name": "La Torre", "tema": "OOP, herencia, dunder methods"},
+    {"id": 6, "name": "El Puerto", "tema": "Módulos, imports, packages"},
+    {"id": 7, "name": "Los Archivos", "tema": "open(), pathlib, JSON, CSV"},
+    {"id": 8, "name": "El Templo", "tema": "Decoradores, closures, functools"},
+    {"id": 9, "name": "El Río", "tema": "Generators, itertools, yield"},
+    {"id": 10, "name": "La Red", "tema": "async/await, aiohttp, concurrencia"},
+    {"id": 11, "name": "El Arsenal", "tema": "pytest, unittest, TDD"},
+    {"id": 12, "name": "El Cuartel", "tema": "os, argparse, subprocess, requests"},
 ]
 
 ZONE_ICONS = {
@@ -99,5 +99,5 @@ def get_zone(zone_id: int):
         if z["id"] == zone_id:
             return z
     if zone_id > 12:
-        return {"id": zone_id, "name": "Zona ∞", "module": "", "tema": "Tu propia zona"}
+        return {"id": zone_id, "name": "Zona ∞", "tema": "Tu propia zona"}
     return None

@@ -1,8 +1,11 @@
 """Descubre zonas dinámicamente leyendo el directorio world/zones/.
 
 El engine nunca sabe cuántas zonas hay. Descubre las zonas leyendo
-el directorio. Eso hace que agregar una zona — ya sea del juego o
-del jugador — sea transparente al sistema. (Principio Open/Closed)
+el directorio. El orden lo determina el campo `id` de la metadata
+de cada zona, no el nombre del archivo.
+
+Si dos zonas tienen el mismo id, el engine lanza un error visible
+y se queda con la última cargada.
 """
 
 import importlib.util
@@ -25,7 +28,15 @@ def _import_zone_module(filepath: Path):
 
 
 def discover_zones() -> dict[int, Zone]:
+    """Escanea world/zones/ y retorna dict {id: Zone} ordenado por id.
+
+    Si detecta ids duplicados, imprime advertencia y usa el último.
+    """
+    from engine.console import console
+
     zones: dict[int, Zone] = {}
+    errors: list[str] = []
+
     for f in sorted(ZONES_DIR.glob("zone_*.py")):
         if f.name == "__init__.py":
             continue
@@ -33,6 +44,21 @@ def discover_zones() -> dict[int, Zone]:
         if mod is None or not hasattr(mod, "zone"):
             continue
         z = mod.zone
-        if isinstance(z, Zone):
-            zones[z.id] = z
-    return zones
+        if not isinstance(z, Zone):
+            errors.append(f"{f.name}: `zone` no es una instancia de Zone")
+            continue
+        if not hasattr(z, "id") or z.id is None:
+            errors.append(f"{f.name}: la zona no tiene campo `id`")
+            continue
+        if z.id in zones:
+            console.print(
+                f"[yellow]⚠ Dos zonas con id={z.id}: "
+                f"'{zones[z.id].name}' y '{z.name}'. "
+                f"Usando la última.[/]"
+            )
+        zones[z.id] = z
+
+    for err in errors:
+        console.print(f"[red]✗ {err}[/]")
+
+    return dict(sorted(zones.items()))

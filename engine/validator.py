@@ -1,19 +1,46 @@
-def validate(
-    stdout: str,
-    expected: str | None = None,
-    test_cases: list[tuple[str, str]] | None = None,
-) -> tuple[bool, str]:
-    """Valida la salida del código contra lo esperado.
-    Retorna (pasó, mensaje)."""
-    if test_cases:
-        for i, (inp, outp) in enumerate(test_cases, 1):
-            if inp.strip() != outp.strip():
-                return False, f"Caso {i} falló.\n  Esperado: {outp!r}\n  Recibido:  {inp!r}"
-        return True, "✓ Todos los casos pasaron."
+"""Valida el código del jugador contra múltiples casos de prueba.
 
-    if expected is not None:
-        if stdout.strip() == expected.strip():
-            return True, "✓ Correcto."
-        return False, f"  Esperado: {expected!r}\n  Recibido:  {stdout!r}"
+Cada caso de prueba se ejecuta en un subproceso aislado por separado,
+usando el test_input correspondiente como entrada (stdin o argumento).
+"""
 
-    return True, "✓ Ejecutado sin errores."
+from engine.executor import execute_code
+from world.zones import TestCase
+
+
+def validate_code(
+    code: str,
+    mode: str,
+    test_cases: list[TestCase],
+    timeout: int = 5,
+) -> tuple[bool, str, list[str]]:
+    """Ejecuta el código contra cada caso de prueba.
+
+    Retorna (pasó_todos, mensaje_global, salidas_por_caso).
+    """
+    outputs: list[str] = []
+
+    for i, tc in enumerate(test_cases, 1):
+        result = execute_code(code, mode=mode, test_input=tc.input, timeout=timeout)
+
+        if result.timed_out:
+            return False, f"Caso {i}: {result.stderr}", outputs
+
+        if result.exit_code != 0:
+            err = result.stderr.strip() or f"Error (código {result.exit_code})"
+            return False, f"Caso {i}: {err}", outputs
+
+        outputs.append(result.stdout)
+
+        if result.stdout != tc.expected.strip():
+            return (
+                False,
+                f"Caso {i} falló.\n"
+                f"  Entrada:   {tc.input!r}\n"
+                f"  Esperado:  {tc.expected!r}\n"
+                f"  Recibido:  {result.stdout!r}",
+                outputs,
+            )
+
+    total = len(test_cases)
+    return True, f"✓ {total}/{total} casos pasaron.", outputs

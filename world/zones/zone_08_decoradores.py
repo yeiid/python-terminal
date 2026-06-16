@@ -1,4 +1,4 @@
-from world.zones import Zone, Mission
+from world.zones import Zone, Mission, TestCase
 
 
 zone = Zone(
@@ -13,27 +13,37 @@ zone = Zone(
         Mission(
             num=1, title="La Capa Simple",
             description="Define un decorador `mayusculas` que convierta el resultado de una función a mayúsculas. Decora `saludar()` que retorna 'hola' y muéstralo.",
-            validation_fn=lambda out, err: (out == "HOLA", "Debe mostrar 'HOLA'"),
+            execution_mode="script",
+            test_cases=[TestCase(input="", expected="HOLA")],
+            hints=["Un decorador envuelve una función", "resultado.upper() convierte a mayúsculas"],
         ),
         Mission(
             num=2, title="Temporizador",
             description="Crea un decorador `tiempo` que mida y muestre los segundos que tarda una función en ejecutarse. Decora una función que suma 1e6 números.",
-            validation_fn=lambda out, err: (True, ""),
+            execution_mode="script",
+            test_cases=[TestCase(input="", expected="")],
+            hints=["time.time() da el tiempo actual en segundos", "Resta el tiempo inicial al final"],
         ),
         Mission(
             num=3, title="Contador de llamadas",
             description="Usa functools.wraps y crea un decorador `contador` que lleve la cuenta de cuántas veces se llamó a la función. Llámala 3 veces y muestra el contador.",
-            validation_fn=lambda out, err: ("3" in out, "Debe mostrar 3 llamadas"),
+            execution_mode="script",
+            test_cases=[TestCase(input="", expected="3")],
+            hints=["functools.wraps preserva los metadatos", "Un contador se almacena como atributo de la función"],
         ),
         Mission(
             num=4, title="Validación de Argumentos",
             description="Crea un decorador `validar_positivos` que verifique que todos los argumentos numéricos sean > 0. Si no, lanza ValueError. Prueba con una función que divide.",
-            validation_fn=lambda out, err: (True, ""),
+            execution_mode="script",
+            test_cases=[TestCase(input="", expected="")],
+            hints=["Inspecciona args con *args, **kwargs", "raise ValueError('mensaje') lanza la excepción"],
         ),
         Mission(
             num=5, title="Boss: Cache Decorator",
             description="Implementa un decorador `cache` que almacene resultados de llamadas anteriores (memoización). Decora `fibonacci(n)` recursivo y calcula fib(35).",
-            validation_fn=lambda out, err: ("9227465" in out, "fib(35) = 9227465"),
+            execution_mode="script",
+            test_cases=[TestCase(input="", expected="9227465")],
+            hints=["Usa un dict para cachear resultados", "if n in cache: return cache[n]"],
         ),
     ],
 )

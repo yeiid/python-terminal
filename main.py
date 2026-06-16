@@ -2,27 +2,28 @@
 """PyQuest — Terminal RPG para aprender Python.
 
 Uso:
-  python main.py               # Jugar
-  python main.py --validate ruta/a/mi_zona.py  # Validar zona creada
-  python main.py --template    # Generar template de zona
+  python main.py                         # Jugar
+  python main.py --validate ruta.py      # Validar zona
+  python main.py --template              # Generar template
 """
 
 import sys
 import argparse
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from engine.console import console
 from engine.renderer import (
-    console, show_title_screen, make_header, render_story,
-    render_mission, render_result, show_commands, render_meta_moment,
-    render_zone_creator_intro,
+    show_title_screen, make_header, render_story,
+    render_mission, render_result, show_commands,
+    render_meta_moment, render_zone_creator_intro, render_act_rules,
 )
 from engine.profile import show_profile
-from engine.acts import get_act, render_act_transition, ACTS
+from engine.acts import get_act, render_act_transition
 from engine.schema import validate_zone_file, generate_template
-from engine.executor import execute_code
-from engine.validator import validate
+from engine.validator import validate_code
 from engine.state import GameState
 from world.map import show_map, get_zone
 from world import ZONE_CLASSES
@@ -42,16 +43,19 @@ def handle_command(cmd: str, state: GameState) -> bool:
         show_map(state.unlocked_zones)
         console.input("\n[dim]Presiona Enter para continuar...[/]")
         return True
-    elif cmd == "/acto":
+    elif cmd.startswith("/acto"):
         act = get_act(state.unlocked_zones)
-        render_act_transition(act)
+        render_act_rules(act)
+        console.input("\n[dim]Presiona Enter para continuar...[/]")
         return True
     elif cmd == "/crear":
         template = generate_template(state.player_name)
         path = Path("world/zones") / f"zone_13_{state.player_name.lower()}_zone.py"
         path.write_text(template)
         console.print(f"[green]✓ Template creado: {path}[/]")
-        console.print("[dim]Edítalo y luego el juego lo descubrirá automáticamente.[/]")
+        console.print("[dim]Edítalo y el juego lo descubrirá automáticamente.[/]")
+        state.add_achievement("creador")
+        state.save()
         console.input("[dim]Presiona Enter para continuar...[/]")
         return True
     elif cmd.startswith("/validar"):
@@ -78,9 +82,12 @@ def handle_command(cmd: str, state: GameState) -> bool:
     return False
 
 
-def get_multiline_input(state: GameState) -> str | None:
+def get_multiline_input(state: GameState, hints_left: int = -1) -> str | None:
     lines = []
-    console.print("[dim](Escribe código o escribe /comando  •  Ctrl+D para enviar  •  Ctrl+C para salir)[/]")
+    hint_status = ""
+    if hints_left >= 0:
+        hint_status = f"  💡{hints_left} hints restantes"
+    console.print(f"[dim](Escribe código o /comando  •  Ctrl+D enviar  •  Ctrl+C salir{hint_status})[/]")
     first_line = console.input("[bold green]  >>> [/]")
     if first_line.startswith("/"):
         if handle_command(first_line, state):
@@ -102,57 +109,92 @@ def get_multiline_input(state: GameState) -> str | None:
     return "\n".join(lines)
 
 
-def process_mission(zone, mission, state):
+def process_mission(zone, mission, state, act):
     mission_key = f"{zone.id}-{mission.num}"
     if mission_key in state.completed_missions:
         return True
 
-    xp_reward = mission.num * 20
+    xp_reward = int(mission.xp_reward * act.xp_multiplier)
+    hints_used_in_this_mission = 0
+    max_hints = act.max_hints_per_mission
+
     render_mission(
         zone.name, mission.num, len(zone.missions),
-        mission.title, mission.description, mission.example,
+        mission.title, mission.description,
+        mission.code_template if act.code_template_required else mission.example,
         xp_reward,
+        hints_left=max_hints if max_hints >= 0 else -1,
+        act=act,
     )
 
-    code = get_multiline_input(state)
+    code = get_multiline_input(state, max_hints if max_hints >= 0 else -1)
     if code is None:
         return False
     if code == "":
         return True
 
-    stdout, stderr = execute_code(code)
-    if stderr:
-        console.print(f"[bold red]Error:[/] {stderr}")
-        return handle_mission_fail(state, mission, mission_key)
+    t0 = time.time()
 
-    passed, msg = mission.validation_fn(stdout, stderr)
-    if passed:
+    # Ejecutar contra cada caso de prueba
+    all_passed = True
+    last_msg = ""
+
+    for tc in mission.test_cases:
+        passed, msg, _ = validate_code(code, mission.execution_mode, [tc])
+        if not passed:
+            all_passed = False
+            last_msg = msg
+            break
+
+    elapsed = time.time() - t0
+    state.missions_time[mission_key] = elapsed
+
+    if all_passed:
         state.add_xp(xp_reward)
+        state.add_xp_to_zone(zone.id, xp_reward)
         state.completed_missions.append(mission_key)
         state.check_mission_achievements(zone.id)
         state.check_zone_complete(zone.id)
         state.check_boss_hunter()
         state.save()
-        render_result(state, True, msg, xp_reward)
+        render_result(state, True, msg or "✓ Misión completada", xp_reward)
 
         if 5 <= zone.id <= 9:
             render_meta_moment(zone.id, mission.num)
-
         return True
     else:
-        console.print(f"[bold red]✗ {msg}[/]")
-        console.print(f"[dim]Tu salida: {stdout!r}[/]")
-        return handle_mission_fail(state, mission, mission_key)
+        state.missions_failed += 1
+        console.print(f"[bold red]✗ {last_msg}[/]")
+        return handle_mission_fail(state, mission, mission_key, act)
 
 
-def handle_mission_fail(state, mission, mission_key):
-    choice = console.input("[yellow][H]int [S]kip(-50xp) [R]eintentar [Q]uit: [/]").lower()
-    if choice == "h":
-        state.hints_used += 1
-        if mission.example:
-            console.print(f"[cyan]Pista:[/] {mission.example}")
+def handle_mission_fail(state, mission, mission_key, act):
+    if not act.allow_skip_with_penalty:
+        console.print("[yellow]En este acto no puedes saltar misiones. ¡Sigue intentando![/]")
         return None
-    elif choice == "s":
+
+    has_hints = bool(mission.hints)
+    can_hint = act.max_hints_per_mission == -1 or state.hints_used_in_zone.get(str(state.unlocked_zones), 0) < act.max_hints_per_mission
+
+    options = "[R]eintentar"
+    if has_hints and can_hint and act.max_hints_per_mission != 0:
+        options += " [H]int"
+    if act.allow_skip_with_penalty:
+        options += " [S]kip(-50xp)"
+    options += " [Q]uit"
+
+    choice = console.input(f"[yellow]{options}: [/]").lower()
+    if choice == "h" and has_hints and can_hint:
+        state.hints_used += 1
+        key = str(state.unlocked_zones)
+        state.hints_used_in_zone[key] = state.hints_used_in_zone.get(key, 0) + 1
+        hint_idx = state.hints_used_in_zone[key] - 1
+        if hint_idx < len(mission.hints):
+            console.print(f"[cyan]Pista {hint_idx + 1}:[/] {mission.hints[hint_idx]}")
+        elif mission.code_template:
+            console.print(f"[cyan]Código base:[/] {mission.code_template}")
+        return None
+    elif choice == "s" and act.allow_skip_with_penalty:
         state.missions_skipped += 1
         state.add_xp(-50)
         state.completed_missions.append(mission_key)
@@ -168,8 +210,8 @@ def handle_mission_fail(state, mission, mission_key):
 
 def main():
     parser = argparse.ArgumentParser(description="PyQuest — Terminal RPG")
-    parser.add_argument("--validate", metavar="ARCHIVO", help="Validar una zona creada por el jugador")
-    parser.add_argument("--template", action="store_true", help="Generar template para nueva zona")
+    parser.add_argument("--validate", metavar="ARCHIVO", help="Validar una zona del jugador")
+    parser.add_argument("--template", action="store_true", help="Generar template de zona")
     args = parser.parse_args()
 
     if args.validate:
@@ -185,9 +227,8 @@ def main():
 
     if args.template:
         template = generate_template()
-        path = "zone_template.py"
-        Path(path).write_text(template)
-        console.print(f"[green]✓ Template creado: {path}[/]")
+        Path("zone_template.py").write_text(template)
+        console.print(f"[green]✓ Template creado: zone_template.py[/]")
         console.print("Edítalo y colócalo en world/zones/")
         sys.exit(0)
 
@@ -209,13 +250,6 @@ def main():
 
         zone = ZONE_CLASSES.get(zone_info["id"])
         if zone is None:
-            console.print("[bold yellow]╔══════════════════════════════════════════╗")
-            console.print("[bold yellow]║  ZONA ∞                                  ║")
-            console.print("[bold yellow]║  No hay más zonas predefinidas           ║")
-            console.print("[bold yellow]║  Crea la tuya con /crear                 ║")
-            console.print("[bold yellow]╚══════════════════════════════════════════╝")
-            show_map(state.unlocked_zones)
-
             if state.unlocked_zones >= 13:
                 render_zone_creator_intro()
                 choice = console.input("[bold]¿Qué quieres hacer? [C]rear zona  [M]apa  [P]erfil  [S]alir: [/]").lower()
@@ -231,22 +265,27 @@ def main():
                     console.print("[yellow]¡Hasta luego, creador![/]")
                     break
                 continue
-
-            console.input("[dim]Presiona Enter para continuar...[/]")
+            console.print("[yellow]Zona no encontrada.[/]")
+            console.input("[dim]Presiona Enter...[/]")
             break
 
         act = get_act(zone.id)
         if act.id != current_act_id:
             current_act_id = act.id
             render_act_transition(act)
+            if zone.id > 1:
+                state.check_act_completion(
+                    get_act(zone.id - 1).id
+                )
 
-        header = make_header(zone, state, f"Acto {act.id}")
+        header = make_header(zone, state, act)
         console.print(header)
+        render_act_rules(act)
         render_story(zone.story_intro)
 
         for mission in zone.missions:
             while True:
-                result = process_mission(zone, mission, state)
+                result = process_mission(zone, mission, state, act)
                 if result is True:
                     break
                 elif result is False:

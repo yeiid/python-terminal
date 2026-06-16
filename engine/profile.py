@@ -1,4 +1,4 @@
-from rich.console import Console, Group
+from rich.console import Group
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
@@ -9,8 +9,7 @@ from rich.align import Align
 from rich import box
 from engine.state import GameState, ALL_ACHIEVEMENTS
 from engine.acts import get_act, ACTS
-
-console = Console()
+from engine.console import console
 
 
 def render_xp_bar(state: GameState) -> Panel:
@@ -30,18 +29,26 @@ def render_stats(state: GameState) -> Panel:
     table.add_column(style="white")
 
     act = get_act(state.unlocked_zones)
-    total_known = 12
     missions_total = state.total_missions
     missions_pct = (missions_total / 60) * 100 if missions_total else 0
-    zones_pct = (len(state.completed_zones) / total_known) * 100 if state.completed_zones else 0
+    total_time = state.total_play_time
+    hours, rem = divmod(int(total_time), 3600)
+    minutes, secs = divmod(rem, 60)
+    time_str = f"{hours}h {minutes}m {secs}s" if hours else f"{minutes}m {secs}s"
 
     table.add_row("🎭  Acto actual:", f"{act.id} — {act.name}")
     table.add_row("🎯  Misiones completadas:", f"{missions_total}/60 ({missions_pct:.0f}%)")
     table.add_row("🗺️  Zonas desbloqueadas:", f"{state.unlocked_zones}/∞")
     table.add_row("📊  XP total ganado:", f"{state.total_xp_earned}")
     table.add_row("💡  Pistas usadas:", str(state.hints_used))
-    table.add_row("⏭️  Misiones saltadas:", str(state.missions_skipped))
+    table.add_row("⏭️  Saltadas:", str(state.missions_skipped))
+    table.add_row("❌  Fallidas:", str(state.missions_failed))
+    table.add_row("⏱️  Tiempo total:", time_str)
     table.add_row("🏅  Medallas:", f"{len(state.achievements)}/{len(ALL_ACHIEVEMENTS)}")
+    table.add_row("📅  Primera sesión:", state.first_play_date)
+    table.add_row("📅  Última sesión:", state.last_session_date)
+    if state.player_zones_created:
+        table.add_row("✨  Zonas creadas:", str(len(state.player_zones_created)))
 
     return Panel(table, title="Estadísticas", border_style="cyan")
 
@@ -79,7 +86,7 @@ def render_acts_progress(state: GameState) -> Panel:
     table = Table.grid(padding=(0, 2))
     table.add_column(style="bold", width=6)
     table.add_column(style="white", width=22)
-    table.add_column(style="white")
+    table.add_column(style="white", width=12)
     current_act = get_act(state.unlocked_zones)
 
     for act in ACTS:
@@ -94,10 +101,25 @@ def render_acts_progress(state: GameState) -> Panel:
         table.add_row(
             f"[{style}]{act.id}[/]",
             f"[{style}]{act.name}[/]",
-            f"[{style}]{'Completo' if completed == total_in_act else f'{completed}/{total_in_act}'}[/]",
+            f"[{style}]{'✓ Completo' if completed == total_in_act else f'{completed}/{total_in_act}'}[/]",
         )
 
     return Panel(table, title="Progresión por Actos", border_style="blue")
+
+
+def render_zone_xp(state: GameState) -> Panel:
+    if not state.xp_per_zone:
+        return Panel(Text("Aún sin datos de XP por zona.", style="dim italic"), title="XP por Zona")
+
+    table = Table.grid(padding=(0, 2))
+    table.add_column(style="dim")
+    table.add_column(style="white")
+    table.add_column(style="yellow")
+    for zid in sorted(state.xp_per_zone.keys(), key=int):
+        xp = state.xp_per_zone[zid]
+        nombre = f"Zona {zid}"
+        table.add_row(f"  🎯 {nombre}", ":" , str(xp))
+    return Panel(table, title="XP por Zona", border_style="green")
 
 
 def show_profile(state: GameState):
