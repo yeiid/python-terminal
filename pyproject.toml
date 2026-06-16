@@ -1,0 +1,16 @@
+[project]
+name = "pyquest"
+version = "1.0.0"
+description = "PyQuest — Terminal RPG para aprender Python"
+requires-python = ">=3.11"
+dependencies = [
+    "rich>=13.0.0",
+    "prompt-toolkit>=3.0.0",
+]
+
+[project.scripts]
+pyquest = "main:main"
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
