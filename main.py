@@ -24,7 +24,8 @@ from engine.renderer import (
     render_mission, render_result, show_commands,
     render_meta_moment, render_zone_creator_intro, render_act_rules,
     render_execution_spinner, render_zone_progress, render_zone_complete,
-    type_print, IS_TERMUX, COMPACT,
+    type_print, IS_TERMUX, COMPACT, show_welcome_new_player, show_quick_tutorial,
+    show_return_dashboard, render_orientation_bar, show_daily_tip,
 )
 from engine.profile import show_profile
 from engine.acts import get_act, render_act_transition
@@ -187,6 +188,13 @@ def process_mission(zone, mission, state, act):
     xp_reward = int(mission.xp_reward * act.xp_multiplier)
     max_hints = act.max_hints_per_mission
 
+    # ── ORIENTACIÓN PERSISTENTE ──
+    render_orientation_bar(
+        zone.id, len(zone.missions),
+        mission.num, len(zone.missions),
+        state, max_hints if max_hints >= 0 else -1,
+    )
+    
     render_mission(
         zone.name, mission.num, len(zone.missions),
         mission.title, mission.description,
@@ -242,18 +250,33 @@ def handle_mission_fail(state, mission, mission_key, act):
         console.print("[yellow]En este acto no puedes saltar misiones. ¡Sigue intentando![/]")
         return None
 
+    # ── PANEL DE FALLA CONTEXTUAL ──
+    from rich.panel import Panel
+    from rich.text import Text
+    from rich import box
+    
+    fail_panel = Text()
+    fail_panel.append("✗ Tu código no pasó las pruebas\n\n", style="bold red")
+    fail_panel.append(f"¿Qué puedes hacer?\n\n", style="white")
+    fail_panel.append("  [yellow][R][/] Reintentar  — vuelve a escribir tu solución\n", style="white")
+    fail_panel.append("  [cyan][H][/] Pedir pista  — una ayuda sin spoilers\n", style="white")  
+    fail_panel.append("  [blue][D][/] Ver docs     — documentación de Python\n", style="white")
+    fail_panel.append("  [dim][S][/] Saltar       — avanza (pierdes 50 XP)\n", style="white")
+    fail_panel.append("  [dim][Q][/] Salir        — guardar y cerrar\n", style="white")
+    
+    console.print(Panel(
+        fail_panel,
+        title="🔧 Taller de Debug",
+        border_style="red",
+        box=box.ROUNDED,
+        padding=(1, 2),
+    ))
+    
     has_hints = bool(mission.hints)
     hints_in_zone = state.hints_used_in_zone.get(str(state.unlocked_zones), 0)
     can_hint = act.max_hints_per_mission == -1 or hints_in_zone < act.max_hints_per_mission
 
-    options = "[R]eintentar"
-    if has_hints and can_hint and act.max_hints_per_mission != 0:
-        options += " [H]int"
-    if act.allow_skip_with_penalty:
-        options += " [S]kip(-50xp)"
-    options += " [D]ocs  [Q]uit"
-
-    choice = console.input(f"[yellow]{options}: [/]").lower()
+    choice = console.input("[bold]Tu elección (R/H/D/S/Q): [/]").lower()
     if choice == "h" and has_hints and can_hint:
         state.hints_used += 1
         key = str(state.unlocked_zones)
@@ -326,11 +349,38 @@ def main():
 
     state = GameState.load()
     show_title_screen(state)
+    
+    # ── NUEVO JUGADOR: Onboarding para primera vez ──
+    if not state.completed_missions:        # ← primera vez
+        show_welcome_new_player()
+        show_quick_tutorial()               # ← tutorial de 2 pasos
+        state.is_tutorial_done = True
+    
     state.save()
 
     current_act_id = None
+    shown_dashboard = False
 
     while True:
+        # ── JUGADOR REGRESANDO: Dashboard de retorno ──
+        if state.total_missions > 0 and not shown_dashboard:
+            choice = show_return_dashboard(state)
+            if choice == "m":
+                show_map(state.unlocked_zones)
+                console.input("[dim]Presiona Enter...[/]")
+                continue
+            elif choice == "p":
+                show_profile(state)
+                continue
+            elif choice == "d":
+                cmd_docs()
+                continue
+            elif choice == "s":
+                state.save()
+                console.print("\n[bold yellow]Juego guardado. ¡Hasta luego, dev![/]")
+                sys.exit(0)
+            shown_dashboard = True
+        
         zone_info = get_zone(state.unlocked_zones)
         if zone_info is None:
             console.print("[bold green]╔══════════════════════════════════════════╗")
