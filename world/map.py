@@ -20,11 +20,15 @@ ZONES = [
     {"id": 10, "name": "La Red", "tema": "async/await, aiohttp, concurrencia"},
     {"id": 11, "name": "El Arsenal", "tema": "pytest, unittest, TDD"},
     {"id": 12, "name": "El Cuartel", "tema": "os, argparse, subprocess, requests"},
+    {"id": 13, "name": "El Abismo", "tema": "Excepciones, try/except, finally"},
+    {"id": 14, "name": "El Portal", "tema": "Context managers, with, contextlib"},
+    {"id": 15, "name": "El Banco de Datos", "tema": "Estructuras de datos, pilas, colas, grafos"},
 ]
 
 ZONE_ICONS = {
     1: "🏘️", 2: "🌀", 3: "🏭", 4: "🏪", 5: "🏰", 6: "⚓",
     7: "📁", 8: "🏛️", 9: "🌊", 10: "🌐", 11: "⚔️", 12: "🏠",
+    13: "🔥", 14: "🌌", 15: "💾",
 }
 
 ACT_COLORS = {"I": "green", "II": "cyan", "III": "magenta", "∞": "yellow"}
@@ -73,14 +77,14 @@ def show_map(unlocked_zone: int):
             style=row_style,
         )
 
-    if unlocked_zone > 12:
+    if unlocked_zone > 15:
         table.add_row(
             "∞",
             "[yellow]Acto ∞[/]",
             "✨",
             "Zona del Creador",
             "Tu propia zona Python",
-            "▶ Actual" if unlocked_zone == 13 else "✓ Creada",
+            "▶ Actual" if unlocked_zone == 16 else "✓ Creada",
             style="bold yellow",
         )
 
@@ -98,6 +102,6 @@ def get_zone(zone_id: int):
     for z in ZONES:
         if z["id"] == zone_id:
             return z
-    if zone_id > 12:
+    if zone_id > 15:
         return {"id": zone_id, "name": "Zona ∞", "tema": "Tu propia zona"}
     return None

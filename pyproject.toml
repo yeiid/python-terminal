@@ -10,6 +10,17 @@ dependencies = [
 
 [project.scripts]
 pyquest = "main:main"
+pyquest-test = "tests.run_all:main"
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --tb=short"
 
 [build-system]
 requires = ["setuptools>=68.0"]

@@ -1,5 +1,6 @@
 import time
-import random
+import os
+import sys
 from rich.panel import Panel
 from rich.layout import Layout
 from rich.text import Text
@@ -16,8 +17,23 @@ from engine.acts import Act
 from engine.console import console
 
 
+def detect_termux() -> bool:
+    return "TERMUX_VERSION" in os.environ
+
+
+def detect_screen_width() -> int:
+    try:
+        return os.get_terminal_size().columns
+    except:
+        return 80
+
+
+IS_TERMUX = detect_termux()
+SCREEN_WIDTH = detect_screen_width()
+COMPACT = IS_TERMUX or SCREEN_WIDTH < 80
+
+
 def type_print(text: str, delay: float = 0.015, style: str = ""):
-    """Typing effect para narrativa. No usar en feedback técnico."""
     for char in text:
         console.print(char, style=style, end="")
         time.sleep(delay)
@@ -27,17 +43,24 @@ def type_print(text: str, delay: float = 0.015, style: str = ""):
 def show_title_screen(state: GameState):
     console.clear()
     t = Text()
-    t.append("╔══════════════════════════════════════════╗\n", style="bold green")
-    t.append("║        ", style="bold green")
-    t.append("PyQuest", style="bold yellow")
-    t.append(" — Terminal RPG            ", style="bold green")
-    t.append("║\n", style="bold green")
-    t.append("║   ", style="bold green")
-    t.append("Aprende Python como un héroe", style="cyan")
-    t.append("     ", style="bold green")
-    t.append("║\n", style="bold green")
-    t.append("╚══════════════════════════════════════════╝", style="bold green")
+    if COMPACT:
+        t.append("  PyQuest  —  Terminal RPG\n", style="bold green")
+        t.append("  Aprende Python como un héroe\n", style="cyan")
+    else:
+        t.append("╔══════════════════════════════════════════╗\n", style="bold green")
+        t.append("║        ", style="bold green")
+        t.append("PyQuest", style="bold yellow")
+        t.append(" — Terminal RPG            ", style="bold green")
+        t.append("║\n", style="bold green")
+        t.append("║   ", style="bold green")
+        t.append("Aprende Python como un héroe", style="cyan")
+        t.append("     ", style="bold green")
+        t.append("║\n", style="bold green")
+        t.append("╚══════════════════════════════════════════╝", style="bold green")
     console.print(Align.center(t))
+
+    if IS_TERMUX:
+        console.print("[dim]📱 Modo Termux detectado — interfaz adaptada[/]")
 
     if not state.player_name or state.player_name == "Dev":
         state.player_name = console.input("[bold]\n¿Cuál es tu nombre, dev? [/]")
@@ -48,15 +71,15 @@ def make_header(zone: "Zone", state: GameState, act: Act | None = None) -> Panel
     text.append(" ⚔️  PyQuest ", style="bold green")
     text.append(f"· {zone.name}  ", style="bold cyan")
     text.append(f"·  Lv.{state.level}  ", style="bold yellow")
-    text.append(f"[{state.title}]", style="magenta")
-    text.append(f"  🎯{zone.id}/∞" if zone.id >= 13 else f"  🎯{zone.id}/12", style="dim")
+    title_short = state.title[:5]
+    text.append(f"[{title_short}]", style="magenta")
+    text.append(f"  {zone.id}/∞" if zone.id >= 13 else f"  {zone.id}/12", style="dim")
     if act:
-        text.append(f"  [Acto {act.id}]", style=f"bold {act.color}")
+        text.append(f"  [{act.id}]", style=f"bold {act.color}")
     return Panel(text, border_style="bright_blue", box=box.HEAVY)
 
 
 def render_zone_progress(completed: int, total: int, zone_name: str):
-    """Barra de progreso de zona — se muestra al entrar."""
     progress = Progress(
         TextColumn("[progress.description]{task.description}"),
         BarColumn(),
@@ -100,13 +123,14 @@ def render_mission(
     console.print(Text(description, style="white"), highlight=True)
 
     if code_example:
+        max_w = min(60, SCREEN_WIDTH - 4) if COMPACT else 60
         example_panel = Panel(
             Text(code_example, style="dim cyan"),
             title="Ejemplo",
             border_style="dim cyan",
             box=box.ROUNDED,
             padding=(0, 1),
-            width=60,
+            width=max_w,
         )
         console.print(example_panel)
 
@@ -195,11 +219,11 @@ def render_zone_creator_intro():
 
 
 def render_execution_spinner(mode: str = "code") -> Live:
-    """Crea un spinner contextual durante la ejecución de código."""
     texts = {
         "code": "Ejecutando tu código en el núcleo...",
         "zone": "Abriendo portal a la zona...",
         "validate": "Analizando tu arquitectura...",
+        "pyhelp": "Cargando documentación...",
     }
     spinner = Spinner("dots", text=texts.get(mode, "Procesando..."), style="cyan")
     return Live(spinner, refresh_per_second=10, transient=True)
@@ -212,7 +236,6 @@ def render_result(
     xp: int = 0,
     old_level: int = 0,
 ):
-    """Panel de resultado — éxito o fallo con formato rico."""
     if passed:
         console.print(Panel(
             Text(f"  ✔ {msg}  (+{xp} XP)", style="bold green"),
@@ -220,8 +243,9 @@ def render_result(
             box=box.HEAVY,
             padding=(0, 1),
         ))
+        bar_width = min(30, SCREEN_WIDTH - 20) if COMPACT else 30
         pct = state.xp_progress * 100
-        bar = ProgressBar(total=state.xp_for_next, completed=state.xp, width=30)
+        bar = ProgressBar(total=state.xp_for_next, completed=state.xp, width=bar_width)
         console.print(f"  [yellow]Lv.{state.level}[/] [cyan]{state.title}[/]  [dim]{state.xp}/{state.xp_for_next} ({pct:.0f}%)[/]")
         console.print(bar)
 
@@ -237,7 +261,6 @@ def render_result(
 
 
 def render_level_up(state: GameState, old_level: int):
-    """Evento de nivel — momento memorable con aparición progresiva."""
     time.sleep(0.3)
     lines = [
         ("", ""),
@@ -274,15 +297,11 @@ def render_zone_complete(
     xp_gained: int,
     time_spent: float,
 ):
-    """Tabla de stats al final de zona."""
     mins, secs = divmod(int(time_spent), 60)
-
     table = Table.grid(padding=(0, 2))
     table.add_column(style="bold cyan", width=14)
     table.add_column(style="white")
-
     accuracy = (completed / max(1, completed + failed)) * 100
-
     table.add_row("  Tiempo", f"{mins} min {secs} seg")
     table.add_row("  Intentos", str(completed + failed))
     table.add_row("  Fallos", str(failed))
@@ -300,14 +319,19 @@ def render_zone_complete(
 
 
 def show_commands():
-    table = Table(title="Comandos", box=box.SIMPLE, header_style="bold cyan")
+    table = Table(title="Comandos PyQuest", box=box.SIMPLE, header_style="bold cyan")
     table.add_column("Comando", style="yellow")
     table.add_column("Acción", style="white")
-    table.add_row("/perfil", "Ver tu perfil y medallas")
+    table.add_row("/perfil", "Ver tu perfil completo (tabs)")
     table.add_row("/mapa", "Ver el mapa de zonas")
     table.add_row("/acto", "Ver las reglas del acto actual")
-    table.add_row("/crear", "Generar template de zona (Zona ∞)")
+    table.add_row("/docs", "📚 Documentación interactiva de Python")
+    table.add_row("/docs <tema>", "Ver un tema específico")
+    table.add_row("/temas", "📚 Panel de aprendizaje con progreso")
+    table.add_row("/playground", "🐍 REPL libre para experimentar")
+    table.add_row("/crear", "Generar template de zona")
     table.add_row("/validar <ruta>", "Validar una zona creada por ti")
+    table.add_row("/git pull", "Actualizar zonas desde Git")
     table.add_row("/ayuda", "Mostrar esta ayuda")
     table.add_row("/salir", "Guardar y salir")
     console.print(table)

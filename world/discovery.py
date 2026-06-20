@@ -17,13 +17,18 @@ ZONES_DIR = Path(__file__).resolve().parent / "zones"
 
 
 def _import_zone_module(filepath: Path):
+    if not filepath.exists():
+        return None
     module_name = filepath.stem
     spec = importlib.util.spec_from_file_location(module_name, filepath)
     if spec is None or spec.loader is None:
         return None
     mod = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = mod
-    spec.loader.exec_module(mod)
+    try:
+        spec.loader.exec_module(mod)
+    except Exception:
+        return None
     return mod
 
 

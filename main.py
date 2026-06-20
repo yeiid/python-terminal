@@ -5,11 +5,15 @@ Uso:
   python main.py                         # Jugar
   python main.py --validate ruta.py      # Validar zona
   python main.py --template              # Generar template
+  python main.py --docs [tema]           # Documentación interactiva
+  python main.py --playground            # REPL libre
+  python main.py --temas [cat]           # Panel de aprendizaje
 """
 
 import sys
 import argparse
 import time
+import subprocess
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -20,19 +24,61 @@ from engine.renderer import (
     render_mission, render_result, show_commands,
     render_meta_moment, render_zone_creator_intro, render_act_rules,
     render_execution_spinner, render_zone_progress, render_zone_complete,
-    type_print,
+    type_print, IS_TERMUX, COMPACT,
 )
 from engine.profile import show_profile
 from engine.acts import get_act, render_act_transition
 from engine.schema import validate_zone_file, generate_template
 from engine.validator import validate_code
 from engine.state import GameState
+from engine.collection import try_collect_object, check_zone_object_unlocked
+from engine.menu import TabMenu
 from world.map import show_map, get_zone
 from world import ZONE_CLASSES
 
 
 def show_help():
     show_commands()
+    console.input("\n[dim]Presiona Enter para continuar...[/]")
+
+
+def cmd_docs(args: str = ""):
+    from engine.pyhelp import show_docs
+    show_docs(args)
+
+
+def cmd_playground():
+    from engine.pyhelp import show_playground
+    show_playground()
+
+
+def cmd_temas(args: str = ""):
+    from engine.panel import show_panel
+    show_panel(args)
+
+
+def cmd_git_pull():
+    console.print("[yellow]📦 Buscando actualizaciones desde Git...[/]")
+    try:
+        result = subprocess.run(
+            ["git", "pull"],
+            capture_output=True, text=True, timeout=30,
+            cwd=Path(__file__).resolve().parent,
+        )
+        if result.returncode == 0:
+            output = result.stdout.strip()
+            if "Already up to date" in output or "Ya está actualizado" in output:
+                console.print("[green]✓ PyQuest ya está actualizado[/]")
+            else:
+                console.print(f"[green]✓ Actualizado:[/]\n{output}")
+        else:
+            console.print(f"[red]Error al actualizar:\n{result.stderr}[/]")
+    except FileNotFoundError:
+        console.print("[red]❌ Git no está instalado. Instálalo con: pkg install git[/]")
+    except subprocess.TimeoutExpired:
+        console.print("[red]❌ Tiempo de espera agotado[/]")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/]")
     console.input("\n[dim]Presiona Enter para continuar...[/]")
 
 
@@ -49,6 +95,27 @@ def handle_command(cmd: str, state: GameState) -> bool:
         act = get_act(state.unlocked_zones)
         render_act_rules(act)
         console.input("\n[dim]Presiona Enter para continuar...[/]")
+        return True
+    elif cmd.startswith("/docs"):
+        parts = cmd.split(maxsplit=1)
+        args = parts[1] if len(parts) > 1 else ""
+        cmd_docs(args)
+        return True
+    elif cmd.startswith("/temas"):
+        parts = cmd.split(maxsplit=1)
+        args = parts[1] if len(parts) > 1 else ""
+        cmd_temas(args)
+        return True
+    elif cmd == "/playground":
+        cmd_playground()
+        return True
+    elif cmd.startswith("/git"):
+        parts = cmd.split(maxsplit=1)
+        if len(parts) > 1 and parts[1] == "pull":
+            cmd_git_pull()
+        else:
+            console.print("[yellow]Usa: /git pull[/]")
+            console.input("\n[dim]Presiona Enter...[/]")
         return True
     elif cmd == "/crear":
         template = generate_template(state.player_name)
@@ -73,6 +140,9 @@ def handle_command(cmd: str, state: GameState) -> bool:
         else:
             console.print("[green]✓ Zona válida. Se integrará al juego automáticamente.[/]")
         console.input("[dim]Presiona Enter para continuar...[/]")
+        return True
+    elif cmd == "/menu":
+        show_profile(state)
         return True
     elif cmd == "/ayuda":
         show_help()
@@ -181,7 +251,7 @@ def handle_mission_fail(state, mission, mission_key, act):
         options += " [H]int"
     if act.allow_skip_with_penalty:
         options += " [S]kip(-50xp)"
-    options += " [Q]uit"
+    options += " [D]ocs  [Q]uit"
 
     choice = console.input(f"[yellow]{options}: [/]").lower()
     if choice == "h" and has_hints and can_hint:
@@ -193,6 +263,10 @@ def handle_mission_fail(state, mission, mission_key, act):
             console.print(f"[cyan]Pista {hint_idx + 1}:[/] {mission.hints[hint_idx]}")
         elif mission.code_template:
             console.print(f"[cyan]Código base:[/] {mission.code_template}")
+        return None
+    elif choice == "d":
+        from engine.pyhelp import show_docs
+        show_docs()
         return None
     elif choice == "s" and act.allow_skip_with_penalty:
         state.missions_skipped += 1
@@ -212,7 +286,25 @@ def main():
     parser = argparse.ArgumentParser(description="PyQuest — Terminal RPG")
     parser.add_argument("--validate", metavar="ARCHIVO", help="Validar una zona del jugador")
     parser.add_argument("--template", action="store_true", help="Generar template de zona")
+    parser.add_argument("--docs", nargs="?", const="", metavar="TEMA", help="Abrir documentación interactiva")
+    parser.add_argument("--playground", action="store_true", help="Abrir REPL libre")
+    parser.add_argument("--temas", nargs="?", const="", metavar="CAT", help="Abrir panel de aprendizaje")
     args = parser.parse_args()
+
+    if args.temas is not None:
+        from engine.panel import show_panel
+        show_panel(args.temas)
+        sys.exit(0)
+
+    if args.docs is not None:
+        from engine.pyhelp import show_docs
+        show_docs(args.docs)
+        sys.exit(0)
+
+    if args.playground:
+        from engine.pyhelp import show_playground
+        show_playground()
+        sys.exit(0)
 
     if args.validate:
         errors = validate_zone_file(args.validate)
@@ -252,9 +344,13 @@ def main():
         if zone is None:
             if state.unlocked_zones >= 13:
                 render_zone_creator_intro()
-                choice = console.input("[bold]¿Qué quieres hacer? [C]rear zona  [M]apa  [P]erfil  [S]alir: [/]").lower()
+                choice = console.input("[bold]¿Qué quieres hacer? [C]rear zona  [D]ocs  [T]emas  [M]apa  [P]erfil  [S]alir: [/]").lower()
                 if choice == "c":
                     handle_command("/crear", state)
+                elif choice == "d":
+                    cmd_docs()
+                elif choice == "t":
+                    cmd_temas()
                 elif choice == "m":
                     show_map(state.unlocked_zones)
                     console.input("[dim]Presiona Enter...[/]")
@@ -297,6 +393,11 @@ def main():
 
         elapsed = time.time() - t_zone_start
 
+        obj_name = try_collect_object(zone.id, state.completed_missions, state.collected_objects)
+        if obj_name:
+            console.print(f"[bold cyan]💠 ¡Has recolectado: {obj_name}![/]")
+            console.print("[dim]Revisa tu colección en el perfil.[/]")
+
         state.unlocked_zones += 1
         state.save()
         render_zone_complete(
@@ -311,10 +412,10 @@ def main():
         )
         show_map(state.unlocked_zones)
 
-        if state.unlocked_zones == 13:
+        if state.unlocked_zones == 16:
             render_zone_creator_intro()
 
-    if state.unlocked_zones >= 13:
+    if state.unlocked_zones >= 16:
         console.print("[bold yellow]╔══════════════════════════════════════════╗")
         console.print("[bold yellow]║  PyQuest ∞                               ║")
         console.print("[bold yellow]║  El juego ahora crece contigo.           ║")

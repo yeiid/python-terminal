@@ -1,3 +1,5 @@
+"""Perfil del jugador con tabs: Stats, Medallas, Battle Pass, Colección."""
+
 from rich.console import Group
 from rich.panel import Panel
 from rich.table import Table
@@ -9,10 +11,88 @@ from rich.align import Align
 from rich import box
 from engine.state import GameState, ALL_ACHIEVEMENTS
 from engine.acts import get_act, ACTS
+from engine.battlepass import render_battle_pass
+from engine.collection import render_collection
+from engine.menu import render_tab_bar
 from engine.console import console
+from engine.curriculum import get_total_progress, get_topic_progress, STATUS_ICONS, STATUS_LABELS
+from engine.pyhelp import TOPICS, CATEGORIES
 
 
-def render_xp_bar(state: GameState) -> Panel:
+PROFILE_TABS = [
+    {"label": "Stats",      "icon": "📊"},
+    {"label": "Medallas",   "icon": "🏅"},
+    {"label": "Battle Pass","icon": "🏆"},
+    {"label": "Colección",  "icon": "💠"},
+    {"label": "Temas",      "icon": "📚"},
+]
+
+
+def show_profile(state: GameState):
+    active_tab = 0
+    while True:
+        console.clear()
+        title_text = Text()
+        title_text.append("╔══════════════════════════════════════════╗\n", style="bold magenta")
+        title_text.append(f"║     PERFIL DE {state.player_name.upper():<30} ║\n", style="bold yellow")
+        title_text.append("╚══════════════════════════════════════════╝", style="bold magenta")
+        console.print(Align.center(title_text))
+        console.print()
+        console.print(render_tab_bar(PROFILE_TABS, active_tab))
+        console.print()
+
+        if active_tab == 0:
+            _render_stats_tab(state)
+        elif active_tab == 1:
+            _render_medals_tab(state)
+        elif active_tab == 2:
+            _render_battlepass_tab(state)
+        elif active_tab == 3:
+            _render_collection_tab(state)
+        elif active_tab == 4:
+            _render_topics_tab()
+
+        console.print()
+        console.print(Align.center(Text("[dim]← → Navegar tabs  |  Enter Volver[/]", style="dim italic")))
+        key = _get_tab_key(active_tab, len(PROFILE_TABS))
+        if key == "select":
+            break
+        elif key == "next":
+            active_tab = (active_tab + 1) % len(PROFILE_TABS)
+        elif key == "prev":
+            active_tab = (active_tab - 1) % len(PROFILE_TABS)
+
+
+def _get_tab_key(current: int, total: int) -> str:
+    import sys
+    import termios
+    import tty
+
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    try:
+        tty.setraw(sys.stdin.fileno())
+        ch = sys.stdin.read(1)
+        if ch == "\t":
+            return "next"
+        if ch == "\x1b":
+            ch2 = sys.stdin.read(2)
+            if ch2 == "[D":
+                return "prev"
+            elif ch2 == "[C":
+                return "next"
+        if ch == "\r" or ch == "\n":
+            return "select"
+        if ch == "\x7f":
+            return "select"
+    except:
+        pass
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+    return "select"
+
+
+def _render_xp_bar(state: GameState) -> Panel:
     pct = state.xp_progress * 100
     bar = ProgressBar(total=state.xp_for_next, completed=state.xp, width=40)
     content = Group(
@@ -23,7 +103,10 @@ def render_xp_bar(state: GameState) -> Panel:
     return Panel(content, title="Progreso", border_style="green")
 
 
-def render_stats(state: GameState) -> Panel:
+def _render_stats_tab(state: GameState):
+    console.print(_render_xp_bar(state))
+    console.print()
+
     table = Table.grid(padding=(0, 2))
     table.add_column(style="bold cyan")
     table.add_column(style="white")
@@ -50,10 +133,10 @@ def render_stats(state: GameState) -> Panel:
     if state.player_zones_created:
         table.add_row("✨  Zonas creadas:", str(len(state.player_zones_created)))
 
-    return Panel(table, title="Estadísticas", border_style="cyan")
+    console.print(Panel(table, title="Estadísticas", border_style="cyan"))
 
 
-def render_medals(state: GameState) -> Panel:
+def _render_medals_tab(state: GameState):
     medals = state.get_medals()
     unlocked = [m for m in medals if m["unlocked"]]
     locked = [m for m in medals if not m["unlocked"]]
@@ -75,14 +158,17 @@ def render_medals(state: GameState) -> Panel:
         medal_texts.append(Text("  (Aún no tienes medallas. ¡Sigue jugando!)", style="dim italic"))
 
     columns = Columns(medal_texts, equal=False, expand=True)
-    return Panel(
+    console.print(Panel(
         Group(Text(f"  Desbloqueadas: {len(unlocked)}/{len(medals)}", style="cyan"), columns),
         title="Medallas y Logros",
         border_style="yellow",
-    )
+    ))
+
+    console.print()
+    _render_acts_progress(state)
 
 
-def render_acts_progress(state: GameState) -> Panel:
+def _render_acts_progress(state: GameState):
     table = Table.grid(padding=(0, 2))
     table.add_column(style="bold", width=6)
     table.add_column(style="white", width=22)
@@ -104,39 +190,45 @@ def render_acts_progress(state: GameState) -> Panel:
             f"[{style}]{'✓ Completo' if completed == total_in_act else f'{completed}/{total_in_act}'}[/]",
         )
 
-    return Panel(table, title="Progresión por Actos", border_style="blue")
+    console.print(Panel(table, title="Progresión por Actos", border_style="blue"))
 
 
-def render_zone_xp(state: GameState) -> Panel:
-    if not state.xp_per_zone:
-        return Panel(Text("Aún sin datos de XP por zona.", style="dim italic"), title="XP por Zona")
+def _render_battlepass_tab(state: GameState):
+    render_battle_pass(state.total_xp_earned)
+
+
+def _render_collection_tab(state: GameState):
+    render_collection(state.collected_objects or [])
+
+
+def _render_topics_tab():
+    completed, total, xp_total, pct = get_total_progress()
+    bar = ProgressBar(total=total, completed=completed, width=30)
+
+    console.print(Panel(
+        Group(
+            Text(f"  📚 Progreso de temas: {completed}/{total} ({pct}%)", style="bold cyan"),
+            bar,
+            Text(f"  XP total de temas: {xp_total}", style="green"),
+        ),
+        title="Aprendizaje",
+        border_style="cyan",
+    ))
+    console.print()
 
     table = Table.grid(padding=(0, 2))
-    table.add_column(style="dim")
-    table.add_column(style="white")
-    table.add_column(style="yellow")
-    for zid in sorted(state.xp_per_zone.keys(), key=int):
-        xp = state.xp_per_zone[zid]
-        nombre = f"Zona {zid}"
-        table.add_row(f"  🎯 {nombre}", ":" , str(xp))
-    return Panel(table, title="XP por Zona", border_style="green")
+    table.add_column(style="bold", width=22)
+    table.add_column(style="white", width=8)
+    table.add_column(style="white", width=10)
+    table.add_column(style="white", width=8)
 
+    for cat_name in CATEGORIES:
+        from engine.curriculum import get_category_progress
+        c, t, x = get_category_progress(cat_name)
+        p = f"{int((c/t)*100)}%" if t else "0%"
+        table.add_row(f"  {cat_name}", f"{c}/{t}", p, f"+{x} XP")
 
-def show_profile(state: GameState):
-    console.clear()
-    title_text = Text()
-    title_text.append("╔══════════════════════════════════════════╗\n", style="bold magenta")
-    title_text.append(f"║     PERFIL DE {state.player_name.upper():<30} ║\n", style="bold yellow")
-    title_text.append("╚══════════════════════════════════════════╝", style="bold magenta")
-    console.print(Align.center(title_text))
+    console.print(Panel(table, title="Por Categoría", border_style="blue"))
 
-    layout = Layout()
-    layout.split_column(
-        Layout(render_xp_bar(state)),
-        Layout(render_stats(state)),
-        Layout(render_acts_progress(state)),
-        Layout(render_medals(state)),
-    )
-    console.print(layout)
-    console.print(Align.center(Text("\nPresiona Enter para volver al juego...", style="dim italic")))
-    input()
+    console.print()
+    console.print("[dim]Usa [cyan]/temas[/] para ver el panel completo de aprendizaje.[/]")

@@ -49,6 +49,8 @@ class GameState:
     xp_per_zone: dict[str, int] = None
     missions_time: dict[str, float] = None
     hints_used_in_zone: dict[str, int] = None
+    collected_objects: list[str] = None
+    battle_pass_tier: int = 0
 
     def __post_init__(self):
         if self.completed_missions is None:
@@ -63,6 +65,8 @@ class GameState:
             self.missions_time = {}
         if self.hints_used_in_zone is None:
             self.hints_used_in_zone = {}
+        if self.collected_objects is None:
+            self.collected_objects = [];
         if self.session_start == 0.0:
             self.session_start = time.time()
         if not self.first_play_date:

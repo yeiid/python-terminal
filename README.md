@@ -62,4 +62,3 @@ Opciones útiles:
 
 ---
 
-*Este README se generó automáticamente por Antigravity, el asistente de codificación IA.*
