@@ -1,6 +1,7 @@
 import time
 import os
 import sys
+from pathlib import Path
 from rich.panel import Panel
 from rich.layout import Layout
 from rich.text import Text
@@ -40,24 +41,33 @@ def type_print(text: str, delay: float = 0.015, style: str = ""):
     console.print()
 
 
+def get_ascii_logo() -> str:
+    path = Path(__file__).resolve().parent.parent / "assets" / "ascii" / "logo.txt"
+    if path.exists():
+        return path.read_text()
+    return ""
+
+
 def show_title_screen(state: GameState):
     console.clear()
-    t = Text()
-    if COMPACT:
-        t.append("  PyQuest  —  Terminal RPG\\n", style="bold green")
-        t.append("  Aprende Python como un héroe\\n", style="cyan")
+    logo = get_ascii_logo()
+    if logo:
+        console.print(Align.center(Text(logo, style="bold green")))
+    elif COMPACT:
+        console.print(Align.center(Text("  pyquest — terminal RPG\\n  aprende python como un héroe\\n", style="bold green")))
     else:
+        t = Text()
         t.append("╔══════════════════════════════════════════╗\\n", style="bold green")
         t.append("║        ", style="bold green")
-        t.append("PyQuest", style="bold yellow")
-        t.append(" — Terminal RPG            ", style="bold green")
+        t.append("pyquest", style="bold yellow")
+        t.append(" — terminal RPG            ", style="bold green")
         t.append("║\\n", style="bold green")
         t.append("║   ", style="bold green")
-        t.append("Aprende Python como un héroe", style="cyan")
+        t.append("aprende python como un héroe", style="cyan")
         t.append("     ", style="bold green")
         t.append("║\\n", style="bold green")
         t.append("╚══════════════════════════════════════════╝", style="bold green")
-    console.print(Align.center(t))
+        console.print(Align.center(t))
 
     if IS_TERMUX:
         console.print("[dim]📱 Modo Termux detectado — interfaz adaptada[/]")

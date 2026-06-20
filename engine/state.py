@@ -51,6 +51,7 @@ class GameState:
     hints_used_in_zone: dict[str, int] = None
     collected_objects: list[str] = None
     battle_pass_tier: int = 0
+    is_tutorial_done: bool = False
 
     def __post_init__(self):
         if self.completed_missions is None:
