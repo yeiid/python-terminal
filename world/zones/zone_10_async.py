@@ -40,11 +40,12 @@ zone = Zone(
             hints=["asyncio.Queue() para comunicación entre tareas", "await queue.put() y await queue.get()"],
         ),
         Mission(
-            num=5, title="Boss: Escáner de Puertos Async",
-            description="Usando asyncio, escanea los puertos 80, 443, 8080 de 'localhost' o 'google.com'. Usa asyncio.open_connection con timeout. Muestra qué puertos están abiertos.",
+            num=5, title="Boss: Descargador Concurrente",
+            description="Usando asyncio, crea una función `fetch_url(url, delay)` que espere `delay` segundos y luego devuelva `f'Descargado: {url}'`. Usa asyncio.gather para descargar 3 URLs en paralelo. Muestra los resultados ordenados.",
             execution_mode="script",
-            test_cases=[TestCase(input="", expected="")],
-            hints=["asyncio.open_connection(host, puerto) abre conexión", "Usa asyncio.wait_for con timeout"],
+            code_template="import asyncio\n\nasync def fetch_url(url, delay):\n    await asyncio.sleep(delay)\n    return f'Descargado: {url}'\n\nasync def main():\n    tareas = [\n        fetch_url('https://ejemplo.com/1', 0.3),\n        fetch_url('https://ejemplo.com/2', 0.1),\n        fetch_url('https://ejemplo.com/3', 0.2),\n    ]\n    resultados = await asyncio.gather(*tareas)\n    for r in resultados:\n        print(r)\n\nasyncio.run(main())",
+            test_cases=[TestCase(input="", expected="Descargado: https://ejemplo.com/1\nDescargado: https://ejemplo.com/2\nDescargado: https://ejemplo.com/3")],
+            hints=["asyncio.gather() ejecuta múltiples corrutinas en paralelo", "Usa await asyncio.sleep() para simular latencia"],
         ),
     ],
 )

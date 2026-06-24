@@ -43,7 +43,7 @@ zone = Zone(
             num=5, title="Boss: Calculadora Científica",
             description="Define funciones `raiz(n)`, `potencia(b, e)` y `seno(x)` (puedes usar math). Lee 3 números: operación, a, b. Si operación es 1: raiz(a); 2: potencia(a,b); 3: seno(a). Muestra el resultado con 3 decimales.",
             execution_mode="script",
-            test_cases=[TestCase(input="", expected="")],
+            test_cases=[TestCase(input="1\n9\n0", expected="3.000")],
             hints=["import math para raiz y seno", "Usa match/case o if/elif para la operación"],
         ),
     ],

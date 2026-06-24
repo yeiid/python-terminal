@@ -6,5 +6,33 @@
     "times_viewed": 1,
     "last_viewed": "2026-06-19 21:46",
     "xp_earned": 5
+  },
+  "dicts": {
+    "topic_id": "dicts",
+    "status": "learning",
+    "examples_run": [
+      "Crear y acceder"
+    ],
+    "times_viewed": 3,
+    "last_viewed": "2026-06-23 20:36",
+    "xp_earned": 15
+  },
+  "listas": {
+    "topic_id": "listas",
+    "status": "learning",
+    "examples_run": [],
+    "times_viewed": 2,
+    "last_viewed": "2026-06-23 20:36",
+    "xp_earned": 5
+  },
+  "json": {
+    "topic_id": "json",
+    "status": "learning",
+    "examples_run": [
+      "JSON b\u00e1sico"
+    ],
+    "times_viewed": 2,
+    "last_viewed": "2026-06-23 20:41",
+    "xp_earned": 15
   }
 }

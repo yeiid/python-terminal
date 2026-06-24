@@ -38,6 +38,9 @@ from world.map import show_map, get_zone
 from world import ZONE_CLASSES
 
 
+class JumpZone(Exception):
+    pass
+
 def show_help():
     show_commands()
     console.input("\n[dim]Presiona Enter para continuar...[/]")
@@ -142,6 +145,22 @@ def handle_command(cmd: str, state: GameState) -> bool:
             console.print("[green]✓ Zona válida. Se integrará al juego automáticamente.[/]")
         console.input("[dim]Presiona Enter para continuar...[/]")
         return True
+    elif cmd.startswith("/saltar"):
+        parts = cmd.split(maxsplit=1)
+        if len(parts) < 2 or not parts[1].isdigit():
+            console.print("[red]Usa: /saltar <numero>[/]")
+            console.input("\n[dim]Presiona Enter...[/]")
+            return True
+        target_zone = int(parts[1])
+        if target_zone < 1 or target_zone > 15:
+            console.print("[red]Zona inválida (1-15)[/]")
+            console.input("\n[dim]Presiona Enter...[/]")
+            return True
+        state.unlocked_zones = target_zone
+        state.save()
+        console.print(f"[green]Saltando a la Zona {target_zone}...[/]")
+        import time; time.sleep(0.5)
+        raise JumpZone()
     elif cmd == "/menu":
         show_profile(state)
         return True
@@ -156,28 +175,15 @@ def handle_command(cmd: str, state: GameState) -> bool:
 
 
 def get_multiline_input(state: GameState, hints_left: int = -1) -> str | None:
-    hint_status = ""
-    if hints_left >= 0:
-        hint_status = f"  💡{hints_left} hints restantes"
-    console.print(f"[dim](Escribe código o /comando  •  Ctrl+D enviar  •  Ctrl+C salir{hint_status})[/]")
-    first_line = console.input("[bold green]  >>> [/]")
-    if first_line.startswith("/"):
-        if handle_command(first_line, state):
+    from ui.editor import mini_editor
+    text = mini_editor(hints_left=hints_left)
+    if text is None:
+        return None
+    if text.startswith("/"):
+        if handle_command(text, state):
             return ""
         return ""
-
-    lines = [first_line]
-    try:
-        while True:
-            line = input("  ... ")
-            lines.append(line)
-    except EOFError:
-        pass
-    except KeyboardInterrupt:
-        state.save()
-        console.print("\n[bold yellow]Juego guardado. ¡Hasta luego, dev![/]")
-        sys.exit(0)
-    return "\n".join(lines)
+    return text
 
 
 def process_mission(zone, mission, state, act):
@@ -362,108 +368,126 @@ def main():
     shown_dashboard = False
 
     while True:
-        # ── JUGADOR REGRESANDO: Dashboard de retorno ──
-        if state.total_missions > 0 and not shown_dashboard:
-            choice = show_return_dashboard(state)
-            if choice == "m":
-                show_map(state.unlocked_zones)
-                console.input("[dim]Presiona Enter...[/]")
-                continue
-            elif choice == "p":
-                show_profile(state)
-                continue
-            elif choice == "d":
-                cmd_docs()
-                continue
-            elif choice == "s":
-                state.save()
-                console.print("\n[bold yellow]Juego guardado. ¡Hasta luego, dev![/]")
-                sys.exit(0)
-            shown_dashboard = True
-        
-        zone_info = get_zone(state.unlocked_zones)
-        if zone_info is None:
-            console.print("[bold green]╔══════════════════════════════════════════╗")
-            console.print("[bold green]║  [yellow]¡Has completado todas las zonas![/]       [bold green]║")
-            console.print("[bold green]║  [cyan]Eres un verdadero Legend.[/]              [bold green]║")
-            console.print("[bold green]╚══════════════════════════════════════════╝")
-            show_profile(state)
-            break
-
-        zone = ZONE_CLASSES.get(zone_info["id"])
-        if zone is None:
-            if state.unlocked_zones >= 13:
-                render_zone_creator_intro()
-                choice = console.input("[bold]¿Qué quieres hacer? [C]rear zona  [D]ocs  [T]emas  [M]apa  [P]erfil  [S]alir: [/]").lower()
-                if choice == "c":
-                    handle_command("/crear", state)
-                elif choice == "d":
-                    cmd_docs()
-                elif choice == "t":
-                    cmd_temas()
+        try:
+            # ── JUGADOR REGRESANDO: Dashboard de retorno ──
+            if state.total_missions > 0 and not shown_dashboard:
+                choice = show_return_dashboard(state)
+                if choice.startswith("/"):
+                    handle_command(choice, state)
+                    continue
+                elif choice == "j":
+                    zone_str = console.input("[bold yellow]¿A qué zona quieres ir? (1-15): [/]")
+                    handle_command(f"/saltar {zone_str}", state)
+                    continue
                 elif choice == "m":
                     show_map(state.unlocked_zones)
                     console.input("[dim]Presiona Enter...[/]")
+                    continue
                 elif choice == "p":
                     show_profile(state)
+                    continue
+                elif choice == "d":
+                    cmd_docs()
+                    continue
                 elif choice == "s":
                     state.save()
-                    console.print("[yellow]¡Hasta luego, creador![/]")
-                    break
-                continue
-            console.print("[yellow]Zona no encontrada.[/]")
-            console.input("[dim]Presiona Enter...[/]")
-            break
+                    console.print("\n[bold yellow]Juego guardado. ¡Hasta luego, dev![/]")
+                    sys.exit(0)
+                shown_dashboard = True
+            
+            zone_info = get_zone(state.unlocked_zones)
+            if zone_info is None:
+                console.print("[bold green]╔══════════════════════════════════════════╗")
+                console.print("[bold green]║  [yellow]¡Has completado todas las zonas![/]       [bold green]║")
+                console.print("[bold green]║  [cyan]Eres un verdadero Legend.[/]              [bold green]║")
+                console.print("[bold green]╚══════════════════════════════════════════╝")
+                show_profile(state)
+                break
 
-        act = get_act(zone.id)
-        if act.id != current_act_id:
-            current_act_id = act.id
-            render_act_transition(act)
-            if zone.id > 1:
-                state.check_act_completion(get_act(zone.id - 1).id)
+            zone = ZONE_CLASSES.get(zone_info["id"])
+            if zone is None:
+                if state.unlocked_zones >= 13:
+                    render_zone_creator_intro()
+                    choice = console.input("[bold]¿Qué quieres hacer? [C]rear  [D]ocs  [T]emas  [M]apa  [J]ugar otra zona  [P]erfil  [S]alir: [/]").lower()
+                    if choice.startswith("/"):
+                        handle_command(choice, state)
+                    elif choice == "c":
+                        handle_command("/crear", state)
+                    elif choice == "d":
+                        cmd_docs()
+                    elif choice == "t":
+                        cmd_temas()
+                    elif choice == "m":
+                        show_map(state.unlocked_zones)
+                        console.input("[dim]Presiona Enter...[/]")
+                    elif choice == "j":
+                        zone_str = console.input("[bold yellow]¿A qué zona quieres ir? (1-15): [/]")
+                        handle_command(f"/saltar {zone_str}", state)
+                    elif choice == "p":
+                        show_profile(state)
+                    elif choice == "s":
+                        state.save()
+                        console.print("[yellow]¡Hasta luego, creador![/]")
+                        break
+                    continue
+                console.print("[yellow]Zona no encontrada.[/]")
+                console.input("[dim]Presiona Enter...[/]")
+                break
 
-        header = make_header(zone, state, act)
-        console.print(header)
-        render_act_rules(act)
-        render_zone_progress(0, len(zone.missions), zone.name)
-        render_story(zone.story_intro)
+            act = get_act(zone.id)
+            if act.id != current_act_id:
+                current_act_id = act.id
+                render_act_transition(act)
+                if zone.id > 1:
+                    state.check_act_completion(get_act(zone.id - 1).id)
 
-        zone_stats = {"xp": 0, "hints": 0, "failed": 0, "completed": 0, "skipped": 0}
-        t_zone_start = time.time()
+            header = make_header(zone, state, act)
+            console.print(header)
+            render_act_rules(act)
+            render_zone_progress(0, len(zone.missions), zone.name)
+            render_story(zone.story_intro)
 
-        for mission in zone.missions:
-            while True:
-                result = process_mission(zone, mission, state, act)
-                if result is True:
-                    zone_stats["completed"] += 1
-                    zone_stats["xp"] += int(mission.xp_reward * act.xp_multiplier)
-                    break
-                elif result is False:
-                    return
+            zone_stats = {"xp": 0, "hints": 0, "failed": 0, "completed": 0, "skipped": 0}
+            t_zone_start = time.time()
 
-        elapsed = time.time() - t_zone_start
+            for mission in zone.missions:
+                while True:
+                    result = process_mission(zone, mission, state, act)
+                    if result is True:
+                        zone_stats["completed"] += 1
+                        zone_stats["xp"] += int(mission.xp_reward * act.xp_multiplier)
+                        break
+                    elif result is False:
+                        return
 
-        obj_name = try_collect_object(zone.id, state.completed_missions, state.collected_objects)
-        if obj_name:
-            console.print(f"[bold cyan]💠 ¡Has recolectado: {obj_name}![/]")
-            console.print("[dim]Revisa tu colección en el perfil.[/]")
+            elapsed = time.time() - t_zone_start
 
-        state.unlocked_zones += 1
-        state.save()
-        render_zone_complete(
-            zone.name, zone.id,
-            len(zone.missions),
-            zone_stats["completed"],
-            zone_stats["skipped"],
-            zone_stats["failed"],
-            zone_stats["hints"],
-            zone_stats["xp"],
-            elapsed,
-        )
-        show_map(state.unlocked_zones)
+            obj_name = try_collect_object(zone.id, state.completed_missions, state.collected_objects)
+            if obj_name:
+                console.print(f"[bold cyan]💠 ¡Has recolectado: {obj_name}![/]")
+                console.print("[dim]Revisa tu colección en el perfil.[/]")
 
-        if state.unlocked_zones == 16:
-            render_zone_creator_intro()
+            state.unlocked_zones += 1
+            state.save()
+            render_zone_complete(
+                zone.name, zone.id,
+                len(zone.missions),
+                zone_stats["completed"],
+                zone_stats["skipped"],
+                zone_stats["failed"],
+                zone_stats["hints"],
+                zone_stats["xp"],
+                elapsed,
+            )
+            show_map(state.unlocked_zones)
+
+            if state.unlocked_zones == 16:
+                render_zone_creator_intro()
+                
+        except JumpZone:
+            shown_dashboard = True
+            console.clear()
+            continue
 
     if state.unlocked_zones >= 16:
         console.print("[bold yellow]╔══════════════════════════════════════════╗")

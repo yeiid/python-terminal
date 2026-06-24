@@ -6,32 +6,28 @@ from engine.renderer import (
     render_story, render_mission, render_result,
     render_meta_moment, render_zone_creator_intro,
     render_execution_spinner, render_zone_complete,
-    show_title_screen, detect_screen_width,
-    detect_termux, IS_TERMUX, COMPACT,
+    show_title_screen, IS_TERMUX, COMPACT,
+    show_welcome_new_player, show_quick_tutorial,
+    render_orientation_bar, show_return_dashboard,
     type_print, _level_color,
 )
+from ui.responsive import responsive
 from engine.state import GameState
 from engine.acts import get_act
 from world.zones import Zone, Mission, TestCase
 
 
-class TestDetectTermux(unittest.TestCase):
-    def test_detect_returns_bool(self):
-        result = detect_termux()
-        self.assertIsInstance(result, bool)
-
+class TestResponsiveVars(unittest.TestCase):
     def test_is_termux_is_bool(self):
         self.assertIsInstance(IS_TERMUX, bool)
 
-
-class TestDetectScreenWidth(unittest.TestCase):
-    def test_width_returns_positive_int(self):
-        w = detect_screen_width()
-        self.assertIsInstance(w, int)
-        self.assertGreater(w, 0)
-
     def test_compact_is_bool(self):
         self.assertIsInstance(COMPACT, bool)
+
+    def test_responsive_width(self):
+        w = responsive.width
+        self.assertIsInstance(w, int)
+        self.assertGreater(w, 0)
 
 
 class TestLevelColor(unittest.TestCase):

@@ -41,9 +41,10 @@ zone = Zone(
         ),
         Mission(
             num=5, title="Boss: Sistema de Inventario",
-            description="Crea clase `Item` (nombre, peso) y clase `Inventario` con lista de items, método `agregar(item)`, método `peso_total()`. Carga 3 items variados y muestra el peso total.",
+            description="Crea clase `Item` (nombre, peso) y clase `Inventario` con lista de items, método `agregar(item)`, método `peso_total()`. Usa esta prueba:\n\nitem1 = Item('Espada', 3.5)\nitem2 = Item('Escudo', 2.0)\nitem3 = Item('Poción', 0.5)\ninv = Inventario()\ninv.agregar(item1)\ninv.agregar(item2)\ninv.agregar(item3)\nprint(inv.peso_total())",
             execution_mode="script",
-            test_cases=[TestCase(input="", expected="")],
+            code_template="class Item:\n    def __init__(self, nombre, peso):\n        self.nombre = nombre\n        self.peso = peso\n\nclass Inventario:\n    def __init__(self):\n        self.items = []\n    def agregar(self, item):\n        self.items.append(item)\n    def peso_total(self):\n        return sum(item.peso for item in self.items)\n\nitem1 = Item('Espada', 3.5)\nitem2 = Item('Escudo', 2.0)\nitem3 = Item('Poción', 0.5)\ninv = Inventario()\ninv.agregar(item1)\ninv.agregar(item2)\ninv.agregar(item3)\nprint(inv.peso_total())",
+            test_cases=[TestCase(input="", expected="6.0")],
             hints=["Usa una lista para almacenar items", "sum(item.peso for item in items) calcula el total"],
         ),
     ],

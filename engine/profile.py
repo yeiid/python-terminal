@@ -17,6 +17,7 @@ from engine.menu import render_tab_bar
 from engine.console import console
 from engine.curriculum import get_total_progress, get_topic_progress, STATUS_ICONS, STATUS_LABELS
 from engine.pyhelp import TOPICS, CATEGORIES
+from ui.responsive import responsive
 
 
 PROFILE_TABS = [
@@ -94,7 +95,8 @@ def _get_tab_key(current: int, total: int) -> str:
 
 def _render_xp_bar(state: GameState) -> Panel:
     pct = state.xp_progress * 100
-    bar = ProgressBar(total=state.xp_for_next, completed=state.xp, width=40)
+    bar_width = responsive.progress_bar_width
+    bar = ProgressBar(total=state.xp_for_next, completed=state.xp, width=bar_width)
     content = Group(
         Text(f"  NIVEL {state.level}  [{state.title}]", style="bold yellow"),
         Text(f"XP: {state.xp}/{state.xp_for_next} ({pct:.0f}%)", style="dim"),
@@ -203,7 +205,8 @@ def _render_collection_tab(state: GameState):
 
 def _render_topics_tab():
     completed, total, xp_total, pct = get_total_progress()
-    bar = ProgressBar(total=total, completed=completed, width=30)
+    bar_width = responsive.progress_bar_width
+    bar = ProgressBar(total=total, completed=completed, width=bar_width)
 
     console.print(Panel(
         Group(

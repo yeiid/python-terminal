@@ -38,7 +38,7 @@ zone = Zone(
             description="Escribe un programa que pida un número (input()), lo convierta a entero, lo multiplique por 2, y muestre el resultado.",
             execution_mode="script",
             code_template="num = int(input())\nprint(num * 2)",
-            test_cases=[TestCase(input="", expected="")],
+            test_cases=[TestCase(input="21", expected="42")],
             hints=["int() convierte string a entero", "input() siempre devuelve un string"],
         ),
         Mission(
@@ -46,7 +46,7 @@ zone = Zone(
             description="Escribe un programa que lea dos números: total_cuenta y porcentaje_propina, y muestre:\n'Propina: $X. Total: $Y'\ncon 2 decimales.",
             execution_mode="script",
             code_template="total = float(input())\npct = float(input())\npropina = total * pct / 100\nprint(f'Propina: ${propina:.2f}. Total: ${total + propina:.2f}')",
-            test_cases=[TestCase(input="", expected="")],
+            test_cases=[TestCase(input="100\n15", expected="Propina: $15.00. Total: $115.00")],
             hints=["Usa float() para números decimales", "Formatea con :.2f para 2 decimales"],
         ),
     ],

@@ -19,10 +19,11 @@ zone = Zone(
         ),
         Mission(
             num=2, title="Temporizador",
-            description="Crea un decorador `tiempo` que mida y muestre los segundos que tarda una función en ejecutarse. Decora una función que suma 1e6 números.",
+            description="Crea un decorador `registro` que muestre 'Iniciando <nombre_func>' al empezar y 'Finalizado <nombre_func>' al terminar. Decora una función `saludar()` que haga print('Hola!').",
             execution_mode="script",
-            test_cases=[TestCase(input="", expected="")],
-            hints=["time.time() da el tiempo actual en segundos", "Resta el tiempo inicial al final"],
+            code_template="def registro(func):\n    def wrapper(*args, **kwargs):\n        print(f'Iniciando {func.__name__}')\n        resultado = func(*args, **kwargs)\n        print(f'Finalizado {func.__name__}')\n        return resultado\n    return wrapper\n\n@registro\ndef saludar():\n    print('Hola!')\n\nsaludar()",
+            test_cases=[TestCase(input="", expected="Iniciando saludar\nHola!\nFinalizado saludar")],
+            hints=["func.__name__ da el nombre de la función", "El wrapper debe llamar a func() entre los prints"],
         ),
         Mission(
             num=3, title="Contador de llamadas",
@@ -33,10 +34,11 @@ zone = Zone(
         ),
         Mission(
             num=4, title="Validación de Argumentos",
-            description="Crea un decorador `validar_positivos` que verifique que todos los argumentos numéricos sean > 0. Si no, lanza ValueError. Prueba con una función que divide.",
+            description="Crea un decorador `validar_positivos` que verifique que todos los argumentos numéricos sean > 0. Si alguno es <= 0, lanza ValueError. Prueba con dividir(10, 2) que debe funcionar.",
             execution_mode="script",
-            test_cases=[TestCase(input="", expected="")],
-            hints=["Inspecciona args con *args, **kwargs", "raise ValueError('mensaje') lanza la excepción"],
+            code_template="def validar_positivos(func):\n    def wrapper(*args, **kwargs):\n        for arg in args:\n            if isinstance(arg, (int, float)) and arg <= 0:\n                raise ValueError('Argumento debe ser positivo')\n        return func(*args, **kwargs)\n    return wrapper\n\n@validar_positivos\ndef dividir(a, b):\n    return a / b\n\nprint(dividir(10, 2))",
+            test_cases=[TestCase(input="", expected="5.0")],
+            hints=["Inspecciona args con *args, **kwargs", "isinstance(arg, (int, float)) verifica si es número"],
         ),
         Mission(
             num=5, title="Boss: Cache Decorator",

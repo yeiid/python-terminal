@@ -1,9 +1,9 @@
 from rich.console import Console
-import os
+from ui.responsive import responsive
 
 
 def _create_console():
-    is_termux = "TERMUX_VERSION" in os.environ
+    is_termux = responsive.is_termux
     force_terminal = os.environ.get("FORCE_COLOR") or is_termux
 
     return Console(
@@ -12,5 +12,7 @@ def _create_console():
         color_system="truecolor" if is_termux else "auto",
     )
 
+
+import os
 
 console = _create_console()

@@ -133,19 +133,22 @@ def execute_code(
 
 def _clean_error(stderr: str) -> str:
     """Limpia los tracebacks largos para mostrar solo lo esencial."""
-    if "Traceback" in stderr:
-        lines = stderr.split("\n")
-        error_lines = []
-        for line in lines:
-            if line.startswith("Traceback"):
-                continue
-            if "File \"" in line:
-                if ", line " in line:
-                    parts = line.split(", line ")
-                    if len(parts) > 1:
-                        line_num = parts[1].split(",")[0]
-                        error_lines.append(f"  Error en línea {line_num}")
-                continue
-            error_lines.append(line.strip())
-        return "\n".join(error_lines) if any(error_lines) else stderr
-    return stderr
+    lines = stderr.split("\n")
+    error_lines = []
+    for line in lines:
+        if line.startswith("Traceback"):
+            continue
+        if "File \"" in line and ", line " in line:
+            parts = line.split(", line ")
+            if len(parts) > 1:
+                line_num = parts[1].split(",")[0]
+                error_lines.append(f"Error en línea {line_num}")
+            continue
+        # Evitar imprimir líneas con circunflejos (^) que Python añade a veces si desalinean
+        if line.strip() == "^" or set(line.strip()) == {"^", "~"}:
+            error_lines.append(line)
+            continue
+        error_lines.append(line)
+        
+    clean_text = "\n".join(error_lines).strip()
+    return clean_text if clean_text else stderr

@@ -21,6 +21,7 @@ from rich.layout import Layout
 from rich.console import Group
 from engine.console import console
 from engine.pyhelp import TOPICS, CATEGORIES, get_topic, render_topic_detail
+from ui.responsive import responsive
 from engine.curriculum import (
     get_topic_progress, get_category_progress, get_total_progress,
     mark_practiced, mark_mastered, mark_viewed,

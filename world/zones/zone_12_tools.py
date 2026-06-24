@@ -12,17 +12,19 @@ zone = Zone(
     missions=[
         Mission(
             num=1, title="OS Explorer",
-            description="Usa el módulo os para mostrar el directorio actual (getcwd()) y listar los archivos (listdir('.')).",
+            description="Usa el módulo os para mostrar el directorio actual (getcwd()) y cuenta cuántos archivos .py hay en él (listdir y filter).",
             execution_mode="script",
-            test_cases=[TestCase(input="", expected="")],
+            code_template="import os\n\ncwd = os.getcwd()\narchivos = os.listdir('.')\npy_count = len([f for f in archivos if f.endswith('.py')])\n\nprint(f'Dir: {cwd}')\nprint(f'Archivos .py: {py_count}')",
+            test_cases=[TestCase(input="", expected=".py")],
             hints=["os.getcwd() da el directorio actual", "os.listdir('.') lista los archivos"],
         ),
         Mission(
             num=2, title="Argumentos de Línea",
-            description="Usa argparse para crear un programa que acepte --nombre y --edad y muestre 'Hola NOMBRE, tienes EDAD años'.",
+            description="Simula argparse: usa `input()` para recibir argumentos en formato `--nombre <valor> --edad <valor>` y parsea manualmente. Muestra 'Hola NOMBRE, tienes EDAD años'.",
             execution_mode="script",
-            test_cases=[TestCase(input="", expected="")],
-            hints=["import argparse y ArgumentParser", "parser.add_argument('--nombre') añade opción"],
+            code_template="args_str = input()\npartes = args_str.split()\nnombre = partes[partes.index('--nombre') + 1] if '--nombre' in partes else 'Desconocido'\nedad = partes[partes.index('--edad') + 1] if '--edad' in partes else '?'\n\nprint(f'Hola {nombre}, tienes {edad} años')",
+            test_cases=[TestCase(input="--nombre Ana --edad 28", expected="Hola Ana, tienes 28 años")],
+            hints=["input() recibe una línea completa", "str.split() separa por espacios"],
         ),
         Mission(
             num=3, title="Subprocess Power",
@@ -41,16 +43,16 @@ zone = Zone(
         Mission(
             num=5, title="Boss: CLI Definitiva",
             description=(
-                "Crea una CLI completa con argparse que:\n"
-                "- Acepte un comando: 'suma', 'multiplica', 'archivo'\n"
-                "- Para suma: --a --b (enteros)\n"
-                "- Para multiplica: --a --b (enteros)\n"
-                "- Para archivo: --ruta (lee y muestra el archivo)\n"
-                "Prueba con suma 5 7."
+                "Crea un parser manual que reciba por input() un comando:\n"
+                "- 'suma a b' → muestra la suma\n"
+                "- 'multiplica a b' → muestra el producto\n"
+                "- 'archivo ruta' → lee y muestra el archivo\n"
+                "Prueba con: suma 5 7"
             ),
             execution_mode="script",
-            test_cases=[TestCase(input="", expected="")],
-            hints=["add_subparsers() para múltiples comandos", "type=int para argumentos enteros"],
+            code_template="cmd = input().split()\naccion = cmd[0]\n\nif accion == 'suma':\n    a, b = int(cmd[1]), int(cmd[2])\n    print(a + b)\nelif accion == 'multiplica':\n    a, b = int(cmd[1]), int(cmd[2])\n    print(a * b)\nelif accion == 'archivo':\n    with open(cmd[1], 'r') as f:\n        print(f.read())\nelse:\n    print('Comando desconocido')",
+            test_cases=[TestCase(input="suma 5 7", expected="12")],
+            hints=["input().split() separa el comando en partes", "int() convierte a entero"],
         ),
     ],
 )

@@ -48,7 +48,8 @@ zone = Zone(
                 "Luego léelo y calcula el total de ingresos (cantidad*precio)."
             ),
             execution_mode="script",
-            test_cases=[TestCase(input="", expected="")],
+            code_template="import csv\n\nwith open('ventas.csv', 'w', newline='') as f:\n    writer = csv.writer(f)\n    writer.writerow(['producto', 'cantidad', 'precio'])\n    writer.writerow(['manzanas', 10, 2.5])\n    writer.writerow(['panes', 5, 3.0])\n    writer.writerow(['leches', 8, 1.8])\n\ntotal = 0\nwith open('ventas.csv', 'r') as f:\n    reader = csv.DictReader(f)\n    for row in reader:\n        total += int(row['cantidad']) * float(row['precio'])\n\nprint(total)",
+            test_cases=[TestCase(input="", expected="54.4")],
             hints=["import csv para archivos CSV", "Suma cantidad * precio de cada fila"],
         ),
     ],

@@ -37,6 +37,11 @@ TEST_MODULES = [
     "test_discovery",
     "test_map",
     "test_renderer",
+    "test_responsive",
+    "test_indentation",
+    "test_main",
+    "test_profile",
+    "test_panel",
 ]
 
 

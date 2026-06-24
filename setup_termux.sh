@@ -1,7 +1,7 @@
 #!/data/data/com.termux/files/usr/bin/bash
 # ═══════════════════════════════════════════════════════════
 #  PyQuest — Instalación automática para Termux
-#  Aprende Python como un héroe, directo en tu terminal
+#  Con detección responsive y configuración óptima
 #
 #  Uso:
 #    pkg install git -y
@@ -29,6 +29,17 @@ echo ""
 # ─── Detectar Termux ───
 if [ -z "$TERMUX_VERSION" ]; then
     echo -e "${YELLOW}⚠  No se detecta Termux. Continuando igualmente...${NC}"
+fi
+
+# Detectar resolución de pantalla
+COLS=$(tput cols 2>/dev/null || echo 80)
+echo -e "${CYAN}📱  Terminal detectada: ${COLS} columnas${NC}"
+if [ "$COLS" -lt 60 ]; then
+    echo -e "${YELLOW}⚠  Pantalla pequeña (<60 cols) — se usará modo ultra-compacto${NC}"
+elif [ "$COLS" -lt 80 ]; then
+    echo -e "${CYAN}ℹ  Pantalla mediana — se usará modo compacto${NC}"
+else
+    echo -e "${GREEN}✓  Pantalla amplia — se usará modo completo${NC}"
 fi
 
 # ─── 1. Actualizar paquetes ───
@@ -67,7 +78,12 @@ else
     echo -e "  ${YELLOW}  Ejecuta: pip install prompt-toolkit${NC}"
 fi
 
-# ─── 5. Alias para fácil acceso ───
+# ─── 5. Crear configuración responsive ───
+echo -e "${CYAN}⚙️  Configurando ajustes responsive...${NC}"
+CONFIG_DIR="${PWD}/data"
+mkdir -p "$CONFIG_DIR"
+
+# ─── 6. Alias para fácil acceso ───
 if ! grep -q "alias pyquest" ~/.bashrc 2>/dev/null; then
     echo -e "${CYAN}🔗 Agregando alias 'pyquest' a ~/.bashrc...${NC}"
     echo "" >> ~/.bashrc
@@ -77,7 +93,17 @@ if ! grep -q "alias pyquest" ~/.bashrc 2>/dev/null; then
     echo "alias pyquest-play='cd ${PWD} && python3 main.py --playground'" >> ~/.bashrc
 fi
 
-# ─── 6. Limpiar y finalizar ───
+# ─── 7. Sugerir optimización de fuente ───
+echo ""
+echo -e "${YELLOW}💡  Sugerencia:${NC}"
+echo -e "  Para mejor experiencia en pantallas pequeñas:"
+echo -e "  • Reduce el tamaño de fuente en Termux:"
+echo -e "    ${BOLD}Volumen -${NC} o menú → Ajustes → Font size"
+echo -e "  • Activa el modo compacto desde el juego:"
+echo -e "    ${BOLD}/compact${NC} dentro de PyQuest"
+echo ""
+
+# ─── 7. Limpiar y finalizar ───
 echo ""
 echo -e "${BOLD}${GREEN}  ──────────────────────────────────────────${NC}"
 echo -e "${BOLD}${GREEN}  ✅  PyQuest instalado correctamente${NC}"

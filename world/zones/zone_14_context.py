@@ -43,9 +43,10 @@ zone = Zone(
         ),
         Mission(
             num=5, title="Boss: Pool de Conexiones",
-            description="Crea un context manager `PoolConexiones` que mantenga un máximo de 2 conexiones.\nAl entrar, si hay menos de 2 conexiones activas, muestra 'Conexión asignada'.\nAl salir, muestra 'Conexión liberada'.\nSi ya hay 2 conexiones activas, muestra 'Pool lleno'.",
+            description="Crea un context manager `PoolConexiones` que mantenga un máximo de 2 conexiones.\nAl entrar, si hay menos de 2 conexiones activas, muestra 'Conexión asignada'.\nAl salir, muestra 'Conexión liberada'.\nSi ya hay 2 conexiones activas, muestra 'Pool lleno'.\n\nPrueba con 3 conexiones anidadas.",
             execution_mode="script",
-            test_cases=[TestCase(input="", expected="")],
+            code_template="class PoolConexiones:\n    activas = 0\n    max_conexiones = 2\n\n    def __enter__(self):\n        if PoolConexiones.activas < self.max_conexiones:\n            PoolConexiones.activas += 1\n            print('Conexión asignada')\n        else:\n            print('Pool lleno')\n        return self\n\n    def __exit__(self, *args):\n        if PoolConexiones.activas > 0:\n            PoolConexiones.activas -= 1\n            print('Conexión liberada')\n\nwith PoolConexiones():\n    with PoolConexiones():\n        with PoolConexiones():\n            pass",
+            test_cases=[TestCase(input="", expected="Conexión asignada\nConexión asignada\nPool lleno\nConexión liberada\nConexión liberada")],
             hints=["Usa una variable de clase para contar conexiones activas", "__exit__ debe decrementar el contador"],
         ),
     ],
